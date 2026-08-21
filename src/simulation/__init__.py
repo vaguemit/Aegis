@@ -8,6 +8,10 @@ from src.simulation.vm_engine import (
     VMState,
     HypervisorType,
 )
+from src.simulation.attack_player import (
+    LiveAttackPlaybackEngine,
+    LiveAttackStepEvent,
+)
 
 __all__ = [
     "EnterpriseVMSimulator",
@@ -16,4 +20,6 @@ __all__ = [
     "HypervisorHost",
     "VMState",
     "HypervisorType",
+    "LiveAttackPlaybackEngine",
+    "LiveAttackStepEvent",
 ]
