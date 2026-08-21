@@ -1,0 +1,67 @@
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache & build
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Jupyter Notebooks checkpoint
+.ipynb_checkpoints
+
+# External packages & datasets
+replication_pkg/
+data/_data_/
+data/pignn_graphs/
+*.pt
+*.pickle
+*.zip
+*.tar.gz
+
+# Frontend dependencies
+frontend/node_modules/
+frontend/dist/
+frontend/.next/
+frontend/out/
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

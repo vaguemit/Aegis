@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegispath"
+version = "0.1.0"
+description = "AI-Powered Enterprise Attack Path Prediction and Security Decision Support System"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "AegisPath Team" }
+]
+keywords = [
+    "cybersecurity",
+    "attack-path-prediction",
+    "graph-neural-networks",
+    "graph-attention-network",
+    "active-directory",
+    "counterfactual-defense",
+    "explainable-ai"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Security",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "torch>=2.2.0",
+    "networkx>=3.0",
+    "numpy>=1.24.0",
+    "scipy>=1.11.0",
+    "scikit-learn>=1.3.0",
+    "matplotlib>=3.8.0",
+    "pandas>=2.1.0",
+    "tqdm>=4.66.0",
+    "fastapi>=0.110.0",
+    "uvicorn>=0.28.0",
+    "pydantic>=2.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "httpx>=0.27.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
