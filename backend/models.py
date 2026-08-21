@@ -148,6 +148,11 @@ class DefenseSimulateRequest(BaseModel):
     target_idx: Optional[int] = None
 
 
+class PatchNodeSimulateRequest(BaseModel):
+    graph_id: str
+    node_idx: int
+
+
 class DefenseSimulateResponse(BaseModel):
     action_type: str
     action_description: str
@@ -160,6 +165,14 @@ class DefenseSimulateResponse(BaseModel):
     recommendation_verdict: str
     original_path: PredictedPathResponse
     mitigated_path: Optional[PredictedPathResponse] = None
+    target_node_idx: Optional[int] = None
+    target_node_name: Optional[str] = None
+    kb_article: Optional[str] = None
+    cve_id: Optional[str] = None
+    cvss_before: Optional[float] = None
+    cvss_after: Optional[float] = None
+    patched_service: Optional[str] = None
+    deployment_logs: Optional[List[str]] = None
 
 
 class RecommendDefenseRequest(BaseModel):
