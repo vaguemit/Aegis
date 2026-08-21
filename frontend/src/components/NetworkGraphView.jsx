@@ -35,53 +35,113 @@ export default function NetworkGraphView({
       let tierLevel = 3;
       let nodeSize = 32;
 
-      const isDC = n.entity_type === 'DomainController' || n.name.toLowerCase().includes('dc') || n.name.toLowerCase().includes('domain');
-      const isServer = n.entity_type === 'Server' || n.name.toLowerCase().includes('server') || n.name.toLowerCase().includes('database') || n.name.toLowerCase().includes('sql') || n.name.toLowerCase().includes('web') || n.name.toLowerCase().includes('share');
-      const isWorkstation = n.entity_type === 'Computer' || n.name.toLowerCase().includes('workstation') || n.name.toLowerCase().includes('laptop') || n.name.toLowerCase().includes('pc');
+      const lowerName = n.name.toLowerCase();
+      const isDC = n.entity_type === 'DomainController' || lowerName.includes('dc') || lowerName.includes('domain');
+      const isServer = n.entity_type === 'Server' || lowerName.includes('server') || lowerName.includes('database') || lowerName.includes('sql') || lowerName.includes('web') || lowerName.includes('share') || lowerName.includes('payment') || lowerName.includes('auth');
+      const isWorkstation = n.entity_type === 'Computer' || lowerName.includes('workstation') || lowerName.includes('laptop') || lowerName.includes('pc');
       const isUser = n.entity_type === 'User';
+
+      let deptName = 'Enterprise Network';
+      let deptTag = '';
 
       if (isDC) {
         nodeShape = 'hexagon';
-        nodeColor = '#7C3AED';
-        borderColor = '#A78BFA';
+        nodeColor = '#7C3AED'; // Purple Domain Controller
+        borderColor = '#C4B5FD';
         tierLevel = 1;
-        nodeSize = 42;
+        nodeSize = 44;
+        deptName = 'Active Directory Identity Core';
+        deptTag = 'DC';
       } else if (isServer) {
         nodeShape = 'round-rectangle';
-        nodeColor = '#0284C7';
+        nodeColor = '#0284C7'; // Blue Production Server
         borderColor = '#38BDF8';
         tierLevel = 2;
-        nodeSize = 36;
+        nodeSize = 38;
+        deptName = 'Production Server Tier';
+        deptTag = 'Server';
       } else if (isWorkstation) {
         nodeShape = 'rectangle';
-        nodeColor = '#2563EB';
-        borderColor = '#60A5FA';
         tierLevel = 4;
-        nodeSize = 30;
+        nodeSize = 32;
+
+        if (lowerName.includes('hr')) {
+          deptName = 'Human Resources (HR)';
+          deptTag = 'HR';
+          nodeColor = '#059669'; // Emerald
+          borderColor = '#34D399';
+        } else if (lowerName.includes('finance')) {
+          deptName = 'Finance & Accounting';
+          deptTag = 'Finance';
+          nodeColor = '#D97706'; // Amber Gold
+          borderColor = '#FBBF24';
+        } else if (lowerName.includes('engineering') || lowerName.includes('dev')) {
+          deptName = 'Engineering & DevOps';
+          deptTag = 'Dev';
+          nodeColor = '#2563EB'; // Royal Blue
+          borderColor = '#60A5FA';
+        } else if (lowerName.includes('exec') || lowerName.includes('leadership')) {
+          deptName = 'Executive Leadership';
+          deptTag = 'Exec';
+          nodeColor = '#9333EA'; // Purple
+          borderColor = '#C084FC';
+        } else if (lowerName.includes('sales') || lowerName.includes('marketing')) {
+          deptName = 'Sales & Marketing';
+          deptTag = 'Sales';
+          nodeColor = '#DB2777'; // Pink
+          borderColor = '#F472B6';
+        } else {
+          deptName = 'Corporate Workstations';
+          deptTag = 'Corp';
+          nodeColor = '#475569';
+          borderColor = '#64748B';
+        }
       } else if (isUser) {
         nodeShape = 'ellipse';
-        nodeColor = '#059669';
-        borderColor = '#34D399';
+        nodeColor = '#0D9488'; // Teal
+        borderColor = '#2DD4BF';
         tierLevel = 5;
         nodeSize = 26;
+        deptName = 'Corporate Identity';
+        deptTag = 'User';
       }
 
       if (n.is_owned) {
-        nodeColor = '#06B6D4';
+        nodeColor = '#06B6D4'; // Cyan Initial Breach Foothold
         borderColor = '#67E8F9';
-        nodeSize = Math.max(nodeSize, 36);
+        nodeSize = Math.max(nodeSize, 38);
       }
       if (n.is_vulnerable) {
-        borderColor = '#F59E0B';
+        borderColor = '#F59E0B'; // Amber CVE
       }
       if (n.is_target || n.is_high_value) {
-        nodeColor = '#E11D48';
+        nodeColor = '#E11D48'; // Rose Crown Jewel Target
         borderColor = '#FDA4AF';
-        nodeSize = Math.max(nodeSize, 42);
+        nodeSize = Math.max(nodeSize, 44);
       }
 
+      // Crisp Human-Readable Short Canvas Labels
       let displayName = n.name;
-      if (displayName.length > 20) {
+      if (displayName.includes('-Workstation-')) {
+        const parts = displayName.split('-Workstation-');
+        displayName = `[${parts[0]}] WS-${parts[1]}`;
+      } else if (displayName.includes('Corporate-Web-Portal')) {
+        displayName = '🌐 Web-Portal';
+      } else if (displayName.includes('Customer-SQL-Database')) {
+        displayName = '🗄️ SQL-DB';
+      } else if (displayName.includes('Primary-Domain-Controller')) {
+        displayName = '👑 Primary-DC';
+      } else if (displayName.includes('Backup-DC-Enterprise')) {
+        displayName = '🛡️ Backup-DC';
+      } else if (displayName.includes('Payroll-DB-Server')) {
+        displayName = '💰 Payroll-DB';
+      } else if (displayName.includes('Payment-Gateway-Host')) {
+        displayName = '💳 Payment-Host';
+      } else if (displayName.includes('Internal-File-Share')) {
+        displayName = '📁 File-Share';
+      } else if (displayName.includes('VPN-Auth-Proxy')) {
+        displayName = '🔒 VPN-Proxy';
+      } else if (displayName.length > 20) {
         displayName = displayName.substring(0, 18) + '...';
       }
 
@@ -90,13 +150,15 @@ export default function NetworkGraphView({
           id: n.id,
           label: displayName,
           fullLabel: n.name,
+          department: deptName,
+          deptTag: deptTag,
           index: n.index,
           entity_type: n.entity_type,
           is_vulnerable: n.is_vulnerable,
           is_high_value: n.is_high_value,
           is_owned: n.is_owned,
           is_target: n.is_target,
-          rawNode: n,
+          rawNode: { ...n, department: deptName },
           color: nodeColor,
           borderColor: borderColor,
           shape: nodeShape,
@@ -152,12 +214,12 @@ export default function NetworkGraphView({
             'label': 'data(label)',
             'color': '#FFFFFF',
             'font-size': '10px',
-            'font-weight': '600',
+            'font-weight': '700',
             'font-family': 'Inter, sans-serif',
             'text-valign': 'bottom',
             'text-margin-y': 4,
-            'text-background-color': 'rgba(8, 8, 12, 0.85)',
-            'text-background-opacity': 0.85,
+            'text-background-color': 'rgba(8, 8, 12, 0.9)',
+            'text-background-opacity': 0.9,
             'text-background-padding': 2,
             'text-background-shape': 'roundrectangle',
             'width': 'data(size)',
@@ -269,7 +331,10 @@ export default function NetworkGraphView({
       const node = evt.target;
       const rawNode = node.data('rawNode');
       const renderedPos = node.renderedPosition();
-      setHoveredNode(rawNode);
+      setHoveredNode({
+        ...rawNode,
+        deptLabel: node.data('department'),
+      });
       setTooltipPos({ x: renderedPos.x, y: renderedPos.y });
     });
 
@@ -471,7 +536,7 @@ export default function NetworkGraphView({
         </button>
       </div>
 
-      {/* Floating Compact Legend */}
+      {/* Floating Compact Department Legend */}
       <div
         style={{
           position: 'absolute',
@@ -480,67 +545,74 @@ export default function NetworkGraphView({
           padding: '6px 10px',
           display: 'flex',
           alignItems: 'center',
-          gap: '10px',
-          background: 'rgba(11, 11, 16, 0.92)',
+          gap: '8px',
+          background: 'rgba(11, 11, 16, 0.94)',
           border: '1px solid #1E1E28',
           borderRadius: '6px',
-          fontSize: '0.7rem',
+          fontSize: '0.68rem',
           zIndex: 10,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <div style={{ width: '8px', height: '8px', background: '#06B6D4', borderRadius: '2px' }} />
-          <span>Foothold</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <div style={{ width: '8px', height: '8px', background: '#E11D48', borderRadius: '2px' }} />
-          <span>Target</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
           <div style={{ width: '8px', height: '8px', background: '#7C3AED', borderRadius: '2px' }} />
-          <span>DC</span>
+          <span>👑 DC</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
           <div style={{ width: '8px', height: '8px', background: '#0284C7', borderRadius: '2px' }} />
-          <span>Server</span>
+          <span>🌐 Server</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <div style={{ width: '8px', height: '8px', background: '#059669', borderRadius: '2px' }} />
+          <span>🏢 HR</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <div style={{ width: '8px', height: '8px', background: '#D97706', borderRadius: '2px' }} />
+          <span>💰 Finance</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
           <div style={{ width: '8px', height: '8px', background: '#2563EB', borderRadius: '2px' }} />
-          <span>Workstation</span>
+          <span>⚙️ Dev</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <div style={{ width: '8px', height: '8px', border: '1.5px solid #F59E0B', borderRadius: '2px' }} />
-          <span>CVE</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <div style={{ width: '8px', height: '8px', background: '#06B6D4', borderRadius: '2px' }} />
+          <span>🎯 Foothold</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <div style={{ width: '8px', height: '8px', background: '#E11D48', borderRadius: '2px' }} />
+          <span>🌸 Target</span>
         </div>
       </div>
 
-      {/* Floating Hover Tooltip */}
+      {/* Floating Detailed Hover Card */}
       {hoveredNode && (
         <div
           style={{
             position: 'absolute',
-            left: `${Math.min(window.innerWidth - 300, tooltipPos.x + 15)}px`,
-            top: `${Math.min(window.innerHeight - 150, tooltipPos.y + 15)}px`,
-            padding: '8px 12px',
+            left: `${Math.min(window.innerWidth - 320, tooltipPos.x + 15)}px`,
+            top: `${Math.min(window.innerHeight - 170, tooltipPos.y + 15)}px`,
+            padding: '10px 14px',
             background: '#0B0B10',
             border: '1px solid #333345',
             borderRadius: '8px',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.9)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.95)',
             zIndex: 100,
             pointerEvents: 'none',
-            minWidth: '200px',
+            minWidth: '230px',
           }}
         >
-          <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#FFFFFF', marginBottom: '2px' }}>
+          <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#FFFFFF', marginBottom: '2px' }}>
             {hoveredNode.name}
           </div>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-            {hoveredNode.entity_type} {hoveredNode.os ? `• ${hoveredNode.os}` : ''}
+          <div style={{ fontSize: '0.72rem', color: '#38BDF8', fontWeight: '600', marginBottom: '4px' }}>
+            🏢 {hoveredNode.deptLabel || hoveredNode.department || 'Enterprise Asset'}
+          </div>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+            Type: {hoveredNode.entity_type} {hoveredNode.os ? `• ${hoveredNode.os}` : ''}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-            {hoveredNode.is_owned && <span className="badge badge-cyan" style={{ fontSize: '0.6rem' }}>Attacker Foothold</span>}
+            {hoveredNode.is_owned && <span className="badge badge-cyan" style={{ fontSize: '0.6rem' }}>Adversary Foothold</span>}
             {hoveredNode.is_target && <span className="badge badge-rose" style={{ fontSize: '0.6rem' }}>Target Crown Jewel</span>}
-            {hoveredNode.is_vulnerable && <span className="badge badge-amber" style={{ fontSize: '0.6rem' }}>Unpatched CVE</span>}
+            {hoveredNode.is_vulnerable && <span className="badge badge-amber" style={{ fontSize: '0.6rem' }}>Unpatched CVE Exploit</span>}
           </div>
         </div>
       )}
