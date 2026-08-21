@@ -54,6 +54,7 @@ export default function App() {
   // Counterfactual Defense
   const [defenseResult, setDefenseResult] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const [backendOnline, setBackendOnline] = useState(false);
 
@@ -245,6 +246,7 @@ export default function App() {
 
   // 8. Generate Synthetic Graph
   const handleGenerateGraph = async (config) => {
+    setIsGenerating(true);
     try {
       const res = await fetch('/api/graphs/generate', {
         method: 'POST',
@@ -260,11 +262,26 @@ export default function App() {
           num_vulnerable_nodes: data.nodes.filter((n) => n.is_vulnerable).length,
           num_high_value_nodes: data.nodes.filter((n) => n.is_high_value).length,
         },
-        ...prev,
+        ...prev.filter((g) => g.graph_id !== data.graph_id),
       ]);
       setSelectedGraphId(data.graph_id);
+      setGraphData(data);
+
+      const sIdx = data.source_idx ?? 0;
+      const tIdx = data.target_idx ?? (data.nodes.length > 1 ? data.nodes.length - 1 : 0);
+      setSelectedSourceIdx(sIdx);
+      setSelectedTargetIdx(tIdx);
+      setSelectedNode(null);
+      setPredictionResult(null);
+      setDefenseResult(null);
+      setRecommendations([]);
+      setTimelineEvents([]);
+      setCurrentStepIndex(0);
+      setIsPlaying(false);
     } catch (err) {
       console.error('Error generating graph:', err);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -305,14 +322,16 @@ export default function App() {
         currentStoryId={currentStoryId}
         onSelectStory={handleSelectStory}
         onQuickGenerateNodes={(count) => {
+          const randSuffix = Math.floor(Math.random() * 9000 + 1000);
           handleGenerateGraph({
-            scenario_name: `syn_net_${count}n`,
+            scenario_name: `syn_enterprise_${count}n_${randSuffix}`,
             target_nodes: count,
             edge_multiplier: 2.2,
             cve_probability: 0.25,
             spn_probability: 0.35,
           });
         }}
+        isGenerating={isGenerating}
       />
 
       {/* Main Command Center Layout */}

@@ -28,6 +28,7 @@ export default function Navbar({
   currentStoryId,
   onSelectStory,
   onQuickGenerateNodes,
+  isGenerating,
 }) {
   const [sliderNodes, setSliderNodes] = useState(60);
 
@@ -141,10 +142,23 @@ export default function Navbar({
           <button
             className="btn-cyber"
             onClick={() => onQuickGenerateNodes && onQuickGenerateNodes(sliderNodes)}
-            style={{ padding: '2px 6px', fontSize: '0.66rem', background: '#38BDF8', color: '#000000', fontWeight: '700' }}
-            title="Generate network with this exact number of nodes"
+            disabled={isGenerating}
+            style={{
+              padding: '3px 8px',
+              fontSize: '0.68rem',
+              background: '#38BDF8',
+              color: '#000000',
+              fontWeight: '800',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: isGenerating ? 'not-allowed' : 'pointer',
+              opacity: isGenerating ? 0.7 : 1,
+            }}
+            title="Generate custom Active Directory network with this exact number of nodes"
           >
-            Apply
+            {isGenerating ? <RefreshCw className="animate-spin" size={11} /> : null}
+            {isGenerating ? 'Building...' : 'Apply'}
           </button>
         </div>
 
