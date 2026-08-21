@@ -28,7 +28,7 @@ def plot_benchmark_comparison(
     x = np.arange(len(models))
     width = 0.25
 
-    fig, ax = plt.subplots(figsize=(12, 6), dpi=300)
+    fig, ax = plt.subplots(figsize=(10, 5), dpi=120)
     rects1 = ax.bar(x - width, f1_scores, width, label="F1-Score", color="#2563eb")
     rects2 = ax.bar(x, roc_scores, width, label="ROC-AUC", color="#10b981")
     rects3 = ax.bar(x + width, pr_scores, width, label="PR-AUC", color="#f59e0b")
@@ -61,7 +61,7 @@ def plot_feature_ablation(
     x = np.arange(len(configs))
     width = 0.35
 
-    fig, ax = plt.subplots(figsize=(11, 5.5), dpi=300)
+    fig, ax = plt.subplots(figsize=(10, 5), dpi=120)
     ax.bar(x - width/2, f1_scores, width, label="F1-Score", color="#3b82f6")
     ax.bar(x + width/2, roc_scores, width, label="ROC-AUC", color="#8b5cf6")
 
@@ -92,7 +92,7 @@ def plot_scalability_curves(
     total_lat = [r["total_latency_ms"] for r in scalability_results]
     mem_mb = [r["approx_mem_mb"] for r in scalability_results]
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5), dpi=300)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.5), dpi=120)
 
     # Latency Plot
     ax1.plot(nodes, total_lat, marker="o", linewidth=2, color="#ef4444", label="Total Latency (ms)")
