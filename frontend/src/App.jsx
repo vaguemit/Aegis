@@ -37,6 +37,10 @@ export default function App() {
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
   const [isExperimentsModalOpen, setIsExperimentsModalOpen] = useState(false);
 
+  // Origin & Target Selection
+  const [selectedSourceIdx, setSelectedSourceIdx] = useState(0);
+  const [selectedTargetIdx, setSelectedTargetIdx] = useState(0);
+
   // Counterfactual Defense
   const [defenseResult, setDefenseResult] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
@@ -71,6 +75,10 @@ export default function App() {
       .then((res) => res.json())
       .then((data) => {
         setGraphData(data);
+        const sIdx = data.source_idx ?? 0;
+        const tIdx = data.target_idx ?? (data.nodes.length > 1 ? data.nodes.length - 1 : 0);
+        setSelectedSourceIdx(sIdx);
+        setSelectedTargetIdx(tIdx);
         setSelectedNode(null);
         setPredictionResult(null);
         setDefenseResult(null);
@@ -83,9 +91,12 @@ export default function App() {
   }, [selectedGraphId]);
 
   // 3. Trigger Attack Path Prediction & Live Timeline
-  const handleTriggerPredict = async () => {
+  const handleTriggerPredict = async (customSource, customTarget) => {
     if (!selectedGraphId) return;
     setIsPredicting(true);
+
+    const sIdx = customSource !== undefined ? customSource : selectedSourceIdx;
+    const tIdx = customTarget !== undefined ? customTarget : selectedTargetIdx;
 
     try {
       const res = await fetch('/api/predict', {
@@ -94,6 +105,8 @@ export default function App() {
         body: JSON.stringify({
           graph_id: selectedGraphId,
           model_type: selectedModel,
+          source_idx: sIdx,
+          target_idx: tIdx,
           top_k: 3,
         }),
       });
@@ -257,7 +270,7 @@ export default function App() {
         selectedModel={selectedModel}
         onSelectModel={setSelectedModel}
         isPredicting={isPredicting}
-        onTriggerPredict={handleTriggerPredict}
+        onTriggerPredict={() => handleTriggerPredict()}
         backendOnline={backendOnline}
       />
 
@@ -266,6 +279,17 @@ export default function App() {
         {/* Left Column: Attack Path Simulator & Live Player */}
         <div style={{ height: '100%', overflow: 'hidden' }}>
           <AttackPredictionPanel
+            graphData={graphData}
+            selectedSourceIdx={selectedSourceIdx}
+            onSelectSourceIdx={(idx) => {
+              setSelectedSourceIdx(idx);
+              handleTriggerPredict(idx, selectedTargetIdx);
+            }}
+            selectedTargetIdx={selectedTargetIdx}
+            onSelectTargetIdx={(idx) => {
+              setSelectedTargetIdx(idx);
+              handleTriggerPredict(selectedSourceIdx, idx);
+            }}
             predictionResult={predictionResult}
             activePathIndex={activePathIndex}
             onSelectPathIndex={setActivePathIndex}
@@ -297,6 +321,14 @@ export default function App() {
             <InspectorPanel
               selectedNode={selectedNode}
               onSimulatePatch={handleSimulatePatch}
+              onSetSource={(idx) => {
+                setSelectedSourceIdx(idx);
+                handleTriggerPredict(idx, selectedTargetIdx);
+              }}
+              onSetTarget={(idx) => {
+                setSelectedTargetIdx(idx);
+                handleTriggerPredict(selectedSourceIdx, idx);
+              }}
             />
           </div>
           <div style={{ flex: '1 1 50%', minHeight: 0 }}>
