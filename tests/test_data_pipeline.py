@@ -134,3 +134,20 @@ class TestPreprocessor:
         assert neg_dst.shape == (50,)
         # Ensure none of the sampled negatives are attack edges
         assert (g.y_matrix[neg_src, neg_dst] == 1.0).sum().item() == 0
+
+    def test_data_leakage_audit(self):
+        """Verifies that split partitions have 0% graph ID overlap."""
+        from src.evaluation.data_leakage_check import audit_graph_splits_for_leakage
+
+        generator = SyntheticEnterpriseGenerator(num_computers=5, seed=42)
+        mock_dataset = [generator.generate(scenario_name=f"audit_net_{i}") for i in range(15)]
+        splitter = GraphSplitter(train_ratio=0.8, val_ratio=0.1, test_ratio=0.1, seed=42)
+        train_set, val_set, test_set = splitter.split(mock_dataset)
+
+        train_ids = [mock_dataset[i].graph_id for i in train_set.indices]
+        val_ids = [mock_dataset[i].graph_id for i in val_set.indices]
+        test_ids = [mock_dataset[i].graph_id for i in test_set.indices]
+
+        is_clean, msg = audit_graph_splits_for_leakage(train_ids, val_ids, test_ids)
+        assert is_clean
+        assert "PASSED" in msg

@@ -1,0 +1,60 @@
+# AegisPath Configuration Parameters
+
+project:
+  name: "AegisPath"
+  version: "0.1.0"
+  description: "AI-Powered Enterprise Attack Path Prediction and Security Decision Support System"
+
+data:
+  raw_dir: "data/_data_"
+  synthetic_dir: "data/synthetic"
+  max_samples: 1033
+  node_features: 20
+  edge_types: 16
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  seed: 42
+
+models:
+  gat:
+    in_features: 20
+    hidden_dim: 128
+    out_dim: 128
+    num_heads: 4
+    num_layers: 3
+    dropout: 0.2
+  gcn:
+    in_features: 20
+    hidden_dim: 64
+    out_dim: 64
+    num_layers: 2
+    dropout: 0.2
+  graphsage:
+    in_features: 20
+    hidden_dim: 64
+    out_dim: 64
+    num_layers: 2
+    dropout: 0.2
+
+training:
+  epochs: 25
+  batch_size: 8
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  pos_weight: 250.0
+  focal_alpha: 0.85
+  focal_gamma: 2.0
+
+search:
+  beam_width: 5
+  max_hops: 12
+  min_prob_threshold: 0.0001
+
+backend:
+  host: "0.0.0.0"
+  port: 8000
+  reload: true
+
+frontend:
+  port: 5173
