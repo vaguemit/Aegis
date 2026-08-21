@@ -52,7 +52,7 @@ export default function NetworkGraphView({
       if (isDC) {
         nodeShape = 'hexagon';
         nodeColor = '#7C3AED'; // Purple Domain Controller
-        borderColor = '#C4B5FD';
+        borderColor = '#A78BFA';
         tierLevel = 1;
         nodeSize = 44;
         deptName = 'Active Directory Identity Core';
@@ -234,7 +234,7 @@ export default function NetworkGraphView({
             'shape': 'data(shape)',
             'border-width': 2,
             'border-color': 'data(borderColor)',
-            'transition-property': 'background-color, border-color, width, height, opacity, shadow-blur',
+            'transition-property': 'background-color, border-color, width, height, opacity',
             'transition-duration': '0.2s',
           },
         },
@@ -258,15 +258,12 @@ export default function NetworkGraphView({
           style: {
             'border-width': 3,
             'border-color': '#FFFFFF',
-            'shadow-blur': 14,
-            'shadow-color': '#FFFFFF',
-            'shadow-opacity': 0.7,
           },
         },
         {
           selector: '.faded',
           style: {
-            'opacity': 0.1,
+            'opacity': 0.12,
           },
         },
         {
@@ -281,101 +278,81 @@ export default function NetworkGraphView({
           selector: '.highlighted-edge',
           style: {
             'opacity': 1,
-            'width': 3,
+            'width': 2.5,
             'line-color': '#38BDF8',
             'target-arrow-color': '#38BDF8',
           },
         },
+        /* COMPROMISED ATTACK PATH NODES & EDGES (CRISP, NO FUZZY GLOW) */
         {
           selector: '.attack-path-node',
           style: {
-            'border-width': 4,
-            'border-color': '#F43F5E',
-            'shadow-blur': 22,
-            'shadow-color': '#F43F5E',
-            'shadow-opacity': 0.9,
+            'background-color': '#E11D48',
+            'border-width': 3,
+            'border-color': '#FDA4AF',
             'opacity': 1,
           },
         },
         {
           selector: '.attack-path-edge',
           style: {
-            'width': 4.5,
+            'width': 3.5,
             'line-color': '#F43F5E',
             'target-arrow-color': '#F43F5E',
             'opacity': 1,
             'line-style': 'solid',
-            'arrow-scale': 1.3,
-            'shadow-blur': 12,
-            'shadow-color': '#F43F5E',
-            'shadow-opacity': 0.85,
+            'arrow-scale': 1.1,
             'z-index': 10,
           },
         },
-        /* GREEN SECURED DEFENSE CLASSES */
+        /* GREEN SECURED DEFENSE CLASSES - CRISP, NO FUZZY GLOW */
         {
           selector: '.defense-secured-node',
           style: {
-            'border-width': 4,
+            'border-width': 3,
             'border-color': '#10B981',
-            'shadow-blur': 22,
-            'shadow-color': '#10B981',
-            'shadow-opacity': 0.95,
             'opacity': 1,
           },
         },
         {
           selector: '.defense-secured-edge',
           style: {
-            'width': 4.5,
+            'width': 3.5,
             'line-color': '#10B981',
             'target-arrow-color': '#10B981',
             'opacity': 1,
             'line-style': 'solid',
-            'arrow-scale': 1.3,
-            'shadow-blur': 14,
-            'shadow-color': '#10B981',
-            'shadow-opacity': 0.9,
+            'arrow-scale': 1.1,
             'z-index': 12,
           },
         },
         {
           selector: '.defense-protected-target',
           style: {
-            'border-width': 5,
+            'border-width': 3,
             'border-color': '#10B981',
-            'shadow-blur': 28,
-            'shadow-color': '#10B981',
-            'shadow-opacity': 1.0,
-            'background-color': '#064E3B',
             'opacity': 1,
           },
         },
         {
           selector: '.defense-patched-node',
           style: {
-            'border-width': 5,
-            'border-color': '#10B981',
-            'shadow-blur': 28,
-            'shadow-color': '#10B981',
-            'shadow-opacity': 1.0,
-            'background-color': '#065F46',
+            'background-color': '#059669',
+            'border-width': 3,
+            'border-color': '#34D399',
             'opacity': 1,
           },
         },
         {
           selector: '.defense-severed-edge',
           style: {
-            'width': 4.5,
+            'width': 3.5,
             'line-color': '#10B981',
             'line-style': 'dashed',
             'line-dash-pattern': [6, 4],
             'target-arrow-shape': 'tee',
             'target-arrow-color': '#10B981',
             'opacity': 1,
-            'shadow-blur': 16,
-            'shadow-color': '#10B981',
-            'shadow-opacity': 0.9,
             'z-index': 15,
           },
         },
@@ -391,21 +368,17 @@ export default function NetworkGraphView({
         {
           selector: '.defense-unreachable-node',
           style: {
-            'opacity': 0.25,
-            'border-color': '#475569',
+            'opacity': 0.3,
           },
         },
         {
           selector: '.defense-detour-edge',
           style: {
-            'width': 3.5,
+            'width': 3,
             'line-color': '#F59E0B',
             'line-style': 'dashed',
             'target-arrow-color': '#F59E0B',
-            'opacity': 0.9,
-            'shadow-blur': 10,
-            'shadow-color': '#F59E0B',
-            'shadow-opacity': 0.7,
+            'opacity': 0.85,
             'z-index': 12,
           },
         },
@@ -585,7 +558,7 @@ export default function NetworkGraphView({
         }
       }
     } 
-    // CASE B: NO DEFENSE ACTIVE -> RENDER RED ATTACK PATH
+    // CASE B: NO DEFENSE ACTIVE -> RENDER RED ATTACK PATH (ONLY COMPROMISED NODES TURN RED)
     else if (attackNodes.length > 0) {
       attackNodes.forEach((nodeIdx) => {
         cy.nodes(`[index = ${nodeIdx}]`).addClass('attack-path-node');
@@ -615,7 +588,6 @@ export default function NetworkGraphView({
             background: 'rgba(10, 10, 16, 0.95)',
             border: '1px solid #10B981',
             borderRadius: '8px',
-            boxShadow: '0 0 20px rgba(16, 185, 129, 0.25)',
             zIndex: 20,
             display: 'flex',
             alignItems: 'center',
@@ -808,12 +780,12 @@ export default function NetworkGraphView({
           <span>⚙️ Dev</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-          <div style={{ width: '8px', height: '8px', background: '#F43F5E', borderRadius: '2px' }} />
-          <span>⚡ Attack Path</span>
+          <div style={{ width: '8px', height: '8px', background: '#E11D48', borderRadius: '2px' }} />
+          <span>⚡ Compromised</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-          <div style={{ width: '8px', height: '8px', background: '#10B981', borderRadius: '2px' }} />
-          <span>🛡️ Secured Defense</span>
+          <div style={{ width: '8px', height: '8px', background: '#059669', borderRadius: '2px' }} />
+          <span>🛡️ Patched</span>
         </div>
       </div>
 
