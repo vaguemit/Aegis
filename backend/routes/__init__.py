@@ -5,6 +5,8 @@ from backend.routes.prediction import router as prediction_router
 from backend.routes.explain import router as explain_router
 from backend.routes.defense import router as defense_router
 from backend.routes.experiments import router as experiments_router
+from backend.routes.simulation import router as simulation_router
+from backend.routes.xai import router as xai_router
 
 __all__ = [
     "graphs_router",
@@ -12,4 +14,6 @@ __all__ = [
     "explain_router",
     "defense_router",
     "experiments_router",
+    "simulation_router",
+    "xai_router",
 ]

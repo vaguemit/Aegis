@@ -1,11 +1,14 @@
 """
 AegisPath FastAPI Application Entrypoint.
 Provides high-throughput REST APIs for enterprise graph management,
-GNN attack path prediction, attention-based XAI, and counterfactual defense simulations.
+GNN attack path prediction, VM simulation, attention-based XAI, and counterfactual defense.
+Directly serves production static UI build at `/` for live standalone hosting.
 """
 
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from backend.routes import (
     graphs_router,
@@ -13,20 +16,22 @@ from backend.routes import (
     explain_router,
     defense_router,
     experiments_router,
+    simulation_router,
+    xai_router,
 )
 
 app = FastAPI(
-    title="AegisPath API",
+    title="AegisPath API & Live Cyber Command Center",
     description="AI-Powered Enterprise Attack Path Prediction & Security Decision Support System",
-    version="0.1.0",
+    version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
 
-# Enable CORS for React frontend integration
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all local frontend ports (Vite 5173, Next.js 3000)
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,24 +43,29 @@ app.include_router(prediction_router)
 app.include_router(explain_router)
 app.include_router(defense_router)
 app.include_router(experiments_router)
-
-
-@app.get("/", tags=["Health"])
-def root():
-    """API welcome and health status."""
-    return {
-        "system": "AegisPath",
-        "status": "online",
-        "description": "AI-Powered Enterprise Attack Path Prediction and Decision Support System",
-        "version": "0.1.0",
-        "docs": "/docs",
-    }
+app.include_router(simulation_router)
+app.include_router(xai_router)
 
 
 @app.get("/health", tags=["Health"])
 def health_check():
     """Service liveness probe."""
-    return {"status": "healthy", "service": "aegispath-backend"}
+    return {"status": "healthy", "service": "aegispath-backend", "version": "0.2.0"}
+
+
+# Serve static production frontend build if present
+dist_dir = Path("frontend/dist")
+if dist_dir.exists():
+    app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="static_frontend")
+else:
+    @app.get("/", tags=["Health"])
+    def root():
+        return {
+            "system": "AegisPath",
+            "status": "online",
+            "description": "AI-Powered Enterprise Attack Path Prediction and Decision Support System",
+            "docs": "/docs",
+        }
 
 
 if __name__ == "__main__":
