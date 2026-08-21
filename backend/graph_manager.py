@@ -42,12 +42,21 @@ class BackendGraphManager:
         self._init_default_graphs()
 
     def _init_models(self):
-        """Initializes pre-trained GNN model instances."""
+        """Initializes GNN model instances and loads trained weights if present."""
         self.models["gat"] = GATModel(in_features=20, hidden_dim=64, out_dim=64, num_heads=4, num_layers=2)
         self.models["gcn"] = GCNModel(in_features=20, hidden_dim=64, out_dim=64, num_layers=2)
         self.models["graphsage"] = GraphSAGEModel(in_features=20, hidden_dim=64, out_dim=64, num_layers=2)
         self.models["dijkstra"] = DijkstraShortestPathBaseline()
         self.models["cvss"] = CVSSWeightedShortestPathBaseline()
+
+        checkpoint_path = Path("checkpoints/best_gat_weights.pt")
+        if checkpoint_path.exists():
+            try:
+                state_dict = torch.load(checkpoint_path, map_location="cpu")
+                self.models["gat"].load_state_dict(state_dict)
+                print(f"[+] Successfully loaded trained GAT weights from {checkpoint_path}")
+            except Exception as e:
+                print(f"[!] Initializing GAT default weights ({e})")
 
         for m in self.models.values():
             if hasattr(m, "eval"):
