@@ -100,11 +100,6 @@ export default function App() {
         setTimelineEvents([]);
         setCurrentStepIndex(0);
         setIsPlaying(false);
-
-        // Auto-predict immediately so graph always has paths displayed!
-        setTimeout(() => {
-          handleTriggerPredict(sIdx, tIdx);
-        }, 50);
       })
       .catch((err) => console.error('Error fetching graph detail:', err));
   }, [selectedGraphId]);
