@@ -369,7 +369,8 @@ export default function App() {
           <NetworkGraphView
             graphData={graphData}
             activeAttackPath={activePath}
-            mitigatedAttackPath={defenseResult?.mitigated_path}
+            defenseResult={defenseResult}
+            onClearDefense={() => setDefenseResult(null)}
             onSelectNode={(node) => {
               setSelectedNode(node);
               setRightPanelTab('inspector');

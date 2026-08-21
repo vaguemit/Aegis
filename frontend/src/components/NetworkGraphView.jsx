@@ -8,12 +8,17 @@ import {
   Activity,
   Grid,
   GitBranch,
+  ShieldCheck,
+  ShieldAlert,
+  X,
+  Zap,
 } from 'lucide-react';
 
 export default function NetworkGraphView({
   graphData,
   activeAttackPath,
-  mitigatedAttackPath,
+  defenseResult,
+  onClearDefense,
   onSelectNode,
   selectedNodeId,
 }) {
@@ -168,7 +173,7 @@ export default function NetworkGraphView({
       };
     });
 
-    // Convert edges to Cytoscape format
+    // Convert edges to Cytoscape format with accurate index matching
     const cyEdges = graphData.edges.map((e) => {
       let edgeColor = '#22222E';
       let lineStyle = 'solid';
@@ -193,6 +198,8 @@ export default function NetworkGraphView({
           id: e.id,
           source: e.source,
           target: e.target,
+          source_idx: e.source_idx,
+          target_idx: e.target_idx,
           edge_type: e.edge_type,
           color: edgeColor,
           lineStyle: lineStyle,
@@ -227,8 +234,8 @@ export default function NetworkGraphView({
             'shape': 'data(shape)',
             'border-width': 2,
             'border-color': 'data(borderColor)',
-            'transition-property': 'background-color, border-color, width, height, opacity',
-            'transition-duration': '0.15s',
+            'transition-property': 'background-color, border-color, width, height, opacity, shadow-blur',
+            'transition-duration': '0.2s',
           },
         },
         {
@@ -241,9 +248,9 @@ export default function NetworkGraphView({
             'arrow-scale': 0.85,
             'curve-style': 'bezier',
             'line-style': 'data(lineStyle)',
-            'opacity': 0.4,
+            'opacity': 0.35,
             'transition-property': 'line-color, target-arrow-color, width, opacity',
-            'transition-duration': '0.15s',
+            'transition-duration': '0.2s',
           },
         },
         {
@@ -251,15 +258,15 @@ export default function NetworkGraphView({
           style: {
             'border-width': 3,
             'border-color': '#FFFFFF',
-            'shadow-blur': 12,
+            'shadow-blur': 14,
             'shadow-color': '#FFFFFF',
-            'shadow-opacity': 0.6,
+            'shadow-opacity': 0.7,
           },
         },
         {
           selector: '.faded',
           style: {
-            'opacity': 0.12,
+            'opacity': 0.1,
           },
         },
         {
@@ -284,24 +291,82 @@ export default function NetworkGraphView({
           style: {
             'border-width': 4,
             'border-color': '#F43F5E',
-            'shadow-blur': 18,
+            'shadow-blur': 22,
             'shadow-color': '#F43F5E',
-            'shadow-opacity': 0.8,
+            'shadow-opacity': 0.9,
             'opacity': 1,
           },
         },
         {
           selector: '.attack-path-edge',
           style: {
-            'width': 4,
+            'width': 4.5,
             'line-color': '#F43F5E',
             'target-arrow-color': '#F43F5E',
             'opacity': 1,
             'line-style': 'solid',
-            'arrow-scale': 1.2,
-            'shadow-blur': 10,
+            'arrow-scale': 1.3,
+            'shadow-blur': 12,
             'shadow-color': '#F43F5E',
+            'shadow-opacity': 0.85,
+            'z-index': 10,
+          },
+        },
+        {
+          selector: '.defense-patched-node',
+          style: {
+            'border-width': 5,
+            'border-color': '#10B981',
+            'shadow-blur': 25,
+            'shadow-color': '#10B981',
+            'shadow-opacity': 1.0,
+            'opacity': 1,
+          },
+        },
+        {
+          selector: '.defense-severed-edge',
+          style: {
+            'width': 4.5,
+            'line-color': '#EF4444',
+            'line-style': 'dashed',
+            'line-dash-pattern': [6, 4],
+            'target-arrow-shape': 'tee',
+            'target-arrow-color': '#EF4444',
+            'opacity': 1,
+            'shadow-blur': 14,
+            'shadow-color': '#EF4444',
+            'shadow-opacity': 0.9,
+            'z-index': 15,
+          },
+        },
+        {
+          selector: '.defense-unreachable-edge',
+          style: {
+            'opacity': 0.15,
+            'line-style': 'dotted',
+            'line-color': '#64748B',
+            'target-arrow-color': '#64748B',
+          },
+        },
+        {
+          selector: '.defense-unreachable-node',
+          style: {
+            'opacity': 0.25,
+            'border-color': '#475569',
+          },
+        },
+        {
+          selector: '.defense-detour-edge',
+          style: {
+            'width': 3.5,
+            'line-color': '#F59E0B',
+            'line-style': 'dashed',
+            'target-arrow-color': '#F59E0B',
+            'opacity': 0.9,
+            'shadow-blur': 10,
+            'shadow-color': '#F59E0B',
             'shadow-opacity': 0.7,
+            'z-index': 12,
           },
         },
       ],
@@ -410,28 +475,148 @@ export default function NetworkGraphView({
     applyLayout(cyRef.current, type);
   };
 
+  // Synchronize Attack Path and Defense Cut-Off Visuals
   useEffect(() => {
     if (!cyRef.current) return;
     const cy = cyRef.current;
 
-    cy.elements().removeClass('attack-path-node attack-path-edge');
+    // Reset special highlight classes
+    cy.elements().removeClass(
+      'attack-path-node attack-path-edge defense-patched-node defense-severed-edge defense-unreachable-edge defense-unreachable-node defense-detour-edge'
+    );
 
-    if (activeAttackPath && activeAttackPath.nodes) {
-      activeAttackPath.nodes.forEach((nodeIdx) => {
+    const attackNodes = activeAttackPath?.nodes || [];
+
+    // 1. Highlight baseline attack path
+    if (attackNodes.length > 0) {
+      attackNodes.forEach((nodeIdx) => {
         cy.nodes(`[index = ${nodeIdx}]`).addClass('attack-path-node');
       });
 
-      for (let i = 0; i < activeAttackPath.nodes.length - 1; i++) {
-        const u = activeAttackPath.nodes[i];
-        const v = activeAttackPath.nodes[i + 1];
-        cy.edges(`[source = "node_${u}"][target = "node_${v}"]`).addClass('attack-path-edge');
+      for (let i = 0; i < attackNodes.length - 1; i++) {
+        const u = attackNodes[i];
+        const v = attackNodes[i + 1];
+        // Match both Cytoscape node IDs (n_u) and explicit index data
+        const edge = cy.edges(`[source = "n_${u}"][target = "n_${v}"], [source_idx = ${u}][target_idx = ${v}]`);
+        edge.addClass('attack-path-edge');
       }
     }
-  }, [activeAttackPath]);
+
+    // 2. If a Defense is actively simulated, visualize the cut-off point & severed path!
+    if (defenseResult) {
+      const patchedIdx = defenseResult.mitigated_node_idx;
+      const patchedNode = cy.nodes(`[index = ${patchedIdx}]`);
+      patchedNode.addClass('defense-patched-node');
+
+      // Find where in the attack path the cut-off happens
+      const cutPoint = attackNodes.indexOf(patchedIdx);
+
+      if (cutPoint !== -1) {
+        // Severed incoming and outgoing attack edge at the patched node
+        if (cutPoint > 0) {
+          const prevIdx = attackNodes[cutPoint - 1];
+          const severedInEdge = cy.edges(`[source = "n_${prevIdx}"][target = "n_${patchedIdx}"], [source_idx = ${prevIdx}][target_idx = ${patchedIdx}]`);
+          severedInEdge.removeClass('attack-path-edge').addClass('defense-severed-edge');
+        }
+
+        // All subsequent downstream nodes/edges in original path become UNREACHABLE
+        for (let i = cutPoint + 1; i < attackNodes.length; i++) {
+          const unreachableNodeIdx = attackNodes[i];
+          cy.nodes(`[index = ${unreachableNodeIdx}]`).removeClass('attack-path-node').addClass('defense-unreachable-node');
+
+          const prevNodeIdx = attackNodes[i - 1];
+          const unreachEdge = cy.edges(`[source = "n_${prevNodeIdx}"][target = "n_${unreachableNodeIdx}"], [source_idx = ${prevNodeIdx}][target_idx = ${unreachableNodeIdx}]`);
+          unreachEdge.removeClass('attack-path-edge').addClass('defense-unreachable-edge');
+        }
+      } else if (defenseResult.status === 'severed') {
+        // If whole path severed, mark last hop as severed
+        if (attackNodes.length >= 2) {
+          const u = attackNodes[0];
+          const v = attackNodes[1];
+          const edge = cy.edges(`[source = "n_${u}"][target = "n_${v}"], [source_idx = ${u}][target_idx = ${v}]`);
+          edge.removeClass('attack-path-edge').addClass('defense-severed-edge');
+        }
+      }
+
+      // Highlight new detour path if present
+      const detourNodes = defenseResult.mitigated_path || [];
+      if (detourNodes.length > 1) {
+        for (let i = 0; i < detourNodes.length - 1; i++) {
+          const u = detourNodes[i];
+          const v = detourNodes[i + 1];
+          const detourEdge = cy.edges(`[source = "n_${u}"][target = "n_${v}"], [source_idx = ${u}][target_idx = ${v}]`);
+          detourEdge.addClass('defense-detour-edge');
+        }
+      }
+    }
+  }, [activeAttackPath, defenseResult]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
       <div ref={containerRef} id="cy-container" />
+
+      {/* Prominent Active Defense HUD Overlay */}
+      {defenseResult && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '10px',
+            left: '10px',
+            padding: '8px 14px',
+            background: 'rgba(10, 10, 16, 0.95)',
+            border: '1px solid #10B981',
+            borderRadius: '8px',
+            boxShadow: '0 0 20px rgba(16, 185, 129, 0.25)',
+            zIndex: 20,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}
+        >
+          <div
+            style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '6px',
+              background: '#10B981',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <ShieldCheck size={16} color="#000000" />
+          </div>
+
+          <div>
+            <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#34D399', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span>DEFENSE ACTIVE:</span>
+              <span style={{ color: '#FFFFFF' }}>{defenseResult.mitigated_node_name || 'Patch Applied'}</span>
+            </div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+              Status: <strong style={{ color: '#10B981' }}>{defenseResult.status === 'severed' ? '🛑 Path Severed (-100% Risk)' : '⚠️ Path Diverted to Detour'}</strong>
+            </div>
+          </div>
+
+          <button
+            onClick={onClearDefense}
+            style={{
+              background: '#1E1E28',
+              border: '1px solid #333345',
+              borderRadius: '4px',
+              color: '#FFFFFF',
+              cursor: 'pointer',
+              padding: '3px 6px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '3px',
+              fontSize: '0.66rem',
+            }}
+            title="Reset defense simulation"
+          >
+            <X size={11} /> Reset
+          </button>
+        </div>
+      )}
 
       {/* Sleek Top-Right Canvas Toolbar */}
       <div
@@ -536,7 +721,7 @@ export default function NetworkGraphView({
         </button>
       </div>
 
-      {/* Floating Compact Department Legend */}
+      {/* Floating Compact Legend */}
       <div
         style={{
           position: 'absolute',
@@ -574,12 +759,12 @@ export default function NetworkGraphView({
           <span>⚙️ Dev</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-          <div style={{ width: '8px', height: '8px', background: '#06B6D4', borderRadius: '2px' }} />
-          <span>🎯 Foothold</span>
+          <div style={{ width: '8px', height: '8px', background: '#F43F5E', borderRadius: '2px' }} />
+          <span>⚡ Attack Path</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-          <div style={{ width: '8px', height: '8px', background: '#E11D48', borderRadius: '2px' }} />
-          <span>🌸 Target</span>
+          <div style={{ width: '8px', height: '8px', background: '#10B981', borderRadius: '2px' }} />
+          <span>🛡️ Patched</span>
         </div>
       </div>
 
