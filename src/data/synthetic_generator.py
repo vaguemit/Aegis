@@ -124,10 +124,12 @@ class SyntheticEnterpriseGenerator:
 
         # 2. Create Domain Controllers
         dc_indices = []
+        dc_titles = ["Primary-Domain-Controller", "Backup-DC-Enterprise", "Branch-DC-Internal"]
         for i in range(self.num_domain_controllers):
+            dc_name = dc_titles[i % len(dc_titles)] if i < len(dc_titles) else f"Domain-Controller-{i+1:02d}"
             dc_node = NetworkNode(
                 node_id=node_id_counter,
-                name=f"DC{i+1:02d}.CORP.LOCAL",
+                name=dc_name,
                 entity_type=EntityType.COMPUTER,
                 os=OperatingSystem.WIN_SERVER_2016_2019,
                 is_high_value=True,
@@ -139,13 +141,13 @@ class SyntheticEnterpriseGenerator:
             node_id_counter += 1
 
         # 3. Create Organizational Units (OUs)
-        ou_names = ["Executive", "Finance", "HumanResources", "Engineering", "Operations", "Sales", "IT_Admin"]
+        ou_names = ["Executive-Leadership", "Finance-Dept", "HR-Operations", "Engineering-Core", "IT-Infrastructure", "Sales-Marketing"]
         ou_indices = []
         for i in range(self.num_ous):
-            name = ou_names[i % len(ou_names)] if i < len(ou_names) else f"OU_Sub_{i+1}"
+            name = ou_names[i % len(ou_names)] if i < len(ou_names) else f"Subnet-OU-{i+1}"
             ou_node = NetworkNode(
                 node_id=node_id_counter,
-                name=f"OU={name},DC=CORP,DC=LOCAL",
+                name=f"OU-{name}",
                 entity_type=EntityType.OU,
             )
             nodes.append(ou_node)
@@ -155,10 +157,12 @@ class SyntheticEnterpriseGenerator:
 
         # 4. Create Group Policy Objects (GPOs)
         gpo_indices = []
+        gpo_titles = ["Password-Policy-GPO", "Firewall-Rule-GPO", "Endpoint-Security-GPO", "Audit-Log-GPO"]
         for i in range(self.num_gpos):
+            gpo_name = gpo_titles[i % len(gpo_titles)] if i < len(gpo_titles) else f"Policy-GPO-{i+1}"
             gpo_node = NetworkNode(
                 node_id=node_id_counter,
-                name=f"Default_Policy_GPO_{i+1}",
+                name=gpo_name,
                 entity_type=EntityType.GPO,
             )
             nodes.append(gpo_node)
@@ -168,23 +172,23 @@ class SyntheticEnterpriseGenerator:
             node_id_counter += 1
 
         # 5. Create Core Security Groups
-        group_names = ["Domain Admins", "Server Operators", "HelpDesk", "Workstation Admins", "Standard Users"]
+        group_names = ["Domain-Administrators", "Server-Operators-Group", "IT-HelpDesk-Admins", "Workstation-Admins", "Standard-Corporate-Users"]
         group_indices: Dict[str, int] = {}
         for g_name in group_names:
-            is_hv = g_name in ["Domain Admins", "Server Operators"]
+            is_hv = g_name in ["Domain-Administrators", "Server-Operators-Group"]
             g_node = NetworkNode(
                 node_id=node_id_counter,
                 name=g_name,
                 entity_type=EntityType.GROUP,
                 is_high_value=is_hv,
-                is_target=(g_name == "Domain Admins"),
+                is_target=(g_name == "Domain-Administrators"),
             )
             nodes.append(g_node)
             group_indices[g_name] = node_id_counter
             add_edge_safe(domain_idx, node_id_counter, EdgeType.CONTAINS)
             node_id_counter += 1
 
-        da_idx = group_indices["Domain Admins"]
+        da_idx = group_indices["Domain-Administrators"]
         for dc_idx in dc_indices:
             add_edge_safe(da_idx, dc_idx, EdgeType.ADMIN_TO)
             add_edge_safe(da_idx, dc_idx, EdgeType.GENERIC_ALL)
@@ -193,35 +197,47 @@ class SyntheticEnterpriseGenerator:
 
         # 6. Create Servers
         server_indices = []
-        server_types = ["WEB_SRV", "DB_SQL", "FILE_SHARE", "APP_SRV", "AUTH_PROXY"]
+        server_types = [
+            "Corporate-Web-Portal",
+            "Customer-SQL-Database",
+            "Payroll-DB-Server",
+            "Internal-File-Share",
+            "VPN-Auth-Proxy",
+            "App-Server-Production",
+            "GitLab-Build-Server",
+            "Payment-Gateway-Host",
+        ]
         server_os_list = [OperatingSystem.WIN_SERVER_2012, OperatingSystem.WIN_SERVER_2016_2019, OperatingSystem.OTHER_LINUX]
         for i in range(self.num_servers):
             srv_type = server_types[i % len(server_types)]
             is_vuln = (random.random() < self.cve_probability)
+            srv_name = f"{srv_type}-{i+1:02d}" if i >= len(server_types) else srv_type
             srv_node = NetworkNode(
                 node_id=node_id_counter,
-                name=f"{srv_type}_{i+1:02d}",
+                name=srv_name,
                 entity_type=EntityType.COMPUTER,
                 os=random.choice(server_os_list),
                 is_vulnerable=is_vuln,
-                is_high_value=(srv_type in ["DB_SQL", "AUTH_PROXY"]),
+                is_high_value=("Database" in srv_type or "Payment" in srv_type or "Auth" in srv_type),
             )
             nodes.append(srv_node)
             server_indices.append(node_id_counter)
             ou_idx = random.choice(ou_indices)
             add_edge_safe(ou_idx, node_id_counter, EdgeType.CONTAINS)
-            add_edge_safe(group_indices["Server Operators"], node_id_counter, EdgeType.ADMIN_TO)
-            add_edge_safe(group_indices["Server Operators"], node_id_counter, EdgeType.GENERIC_ALL)
+            add_edge_safe(group_indices["Server-Operators-Group"], node_id_counter, EdgeType.ADMIN_TO)
+            add_edge_safe(group_indices["Server-Operators-Group"], node_id_counter, EdgeType.GENERIC_ALL)
             node_id_counter += 1
 
         # 7. Create Client Workstations
         workstation_indices = []
+        depts = ["Finance", "HR", "Engineering", "Sales", "Executive", "Marketing", "Legal", "DevOps"]
         client_os_list = [OperatingSystem.WIN_10, OperatingSystem.WIN_7]
         for i in range(self.num_computers):
+            dept = depts[i % len(depts)]
             is_vuln = (random.random() < self.cve_probability)
             ws_node = NetworkNode(
                 node_id=node_id_counter,
-                name=f"WS_{i+1:03d}",
+                name=f"{dept}-Workstation-{i+1:02d}",
                 entity_type=EntityType.COMPUTER,
                 os=random.choice(client_os_list),
                 is_vulnerable=is_vuln,
@@ -230,23 +246,32 @@ class SyntheticEnterpriseGenerator:
             workstation_indices.append(node_id_counter)
             ou_idx = random.choice(ou_indices)
             add_edge_safe(ou_idx, node_id_counter, EdgeType.CONTAINS)
-            add_edge_safe(group_indices["Workstation Admins"], node_id_counter, EdgeType.ADMIN_TO)
-            add_edge_safe(group_indices["HelpDesk"], node_id_counter, EdgeType.CAN_RDP)
+            add_edge_safe(group_indices["Workstation-Admins"], node_id_counter, EdgeType.ADMIN_TO)
+            add_edge_safe(group_indices["IT-HelpDesk-Admins"], node_id_counter, EdgeType.CAN_RDP)
             node_id_counter += 1
 
         # 8. Create Users
         user_indices = []
+        first_names = ["Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Henry", "Isabella", "Jack", "Karen", "Liam", "Mia", "Noah", "Olivia"]
+        last_names = ["Smith", "Jones", "Taylor", "Brown", "Wilson", "Johnson", "Clark", "Davis", "Miller", "White"]
         for i in range(self.num_users):
             is_admin = (i < 2)
             is_srv_admin = (2 <= i < 5)
             is_helpdesk = (5 <= i < 9)
             has_spn = (random.random() < self.spn_probability) and not is_admin
 
-            u_name = f"user_{i+1:03d}"
+            fn = first_names[i % len(first_names)]
+            ln = last_names[(i // len(first_names)) % len(last_names)]
+            dept_tag = depts[i % len(depts)]
+
             if is_admin:
-                u_name = f"admin_{i+1:02d}"
+                u_name = f"Admin.{fn}.{ln} (Enterprise Admin)"
             elif is_srv_admin:
-                u_name = f"srvadmin_{i-1:02d}"
+                u_name = f"SrvAdmin.{fn}.{ln} (Ops)"
+            elif is_helpdesk:
+                u_name = f"Support.{fn}.{ln} (IT-HelpDesk)"
+            else:
+                u_name = f"{fn}.{ln} ({dept_tag})"
 
             u_node = NetworkNode(
                 node_id=node_id_counter,
@@ -263,13 +288,13 @@ class SyntheticEnterpriseGenerator:
             add_edge_safe(ou_idx, user_idx, EdgeType.CONTAINS)
 
             if is_admin:
-                add_edge_safe(user_idx, group_indices["Domain Admins"], EdgeType.MEMBER_OF)
+                add_edge_safe(user_idx, group_indices["Domain-Administrators"], EdgeType.MEMBER_OF)
             elif is_srv_admin:
-                add_edge_safe(user_idx, group_indices["Server Operators"], EdgeType.MEMBER_OF)
+                add_edge_safe(user_idx, group_indices["Server-Operators-Group"], EdgeType.MEMBER_OF)
             elif is_helpdesk:
-                add_edge_safe(user_idx, group_indices["HelpDesk"], EdgeType.MEMBER_OF)
+                add_edge_safe(user_idx, group_indices["IT-HelpDesk-Admins"], EdgeType.MEMBER_OF)
             else:
-                add_edge_safe(user_idx, group_indices["Standard Users"], EdgeType.MEMBER_OF)
+                add_edge_safe(user_idx, group_indices["Standard-Corporate-Users"], EdgeType.MEMBER_OF)
 
             if workstation_indices:
                 assigned_ws = random.choice(workstation_indices)
@@ -402,7 +427,7 @@ class SyntheticEnterpriseGenerator:
         path.append(srv_admin_user)
 
         # Step 4: Group Membership
-        da_group = group_indices["Domain Admins"]
+        da_group = group_indices["Domain-Administrators"]
         add_edge_func(srv_admin_user, da_group, EdgeType.MEMBER_OF)
         path.append(da_group)
 
