@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Activity, Cpu, Play, PlusCircle, BarChart3, RefreshCw, Zap } from 'lucide-react';
+import { Shield, Activity, Cpu, PlusCircle, BarChart3, RefreshCw, Zap, Server } from 'lucide-react';
 
 export default function Navbar({
   selectedGraphId,
@@ -7,6 +7,7 @@ export default function Navbar({
   onSelectGraph,
   onOpenGenerateModal,
   onOpenExperimentsModal,
+  onOpenVmModal,
   selectedModel,
   onSelectModel,
   isPredicting,
@@ -14,47 +15,47 @@ export default function Navbar({
   backendOnline,
 }) {
   return (
-    <header className="glass-panel" style={{ margin: '12px 16px', padding: '12px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <header className="glass-panel" style={{ margin: '10px 14px', padding: '10px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#09090D', border: '1px solid #1E1E28' }}>
       {/* Brand & Logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '10px',
-          background: 'linear-gradient(135deg, #0284C7 0%, #06B6D4 100%)',
+          width: '36px',
+          height: '36px',
+          borderRadius: '8px',
+          background: '#FFFFFF',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 0 15px rgba(6, 182, 212, 0.4)'
+          boxShadow: '0 0 15px rgba(255, 255, 255, 0.2)'
         }}>
-          <Shield size={24} color="#FFFFFF" />
+          <Shield size={20} color="#000000" />
         </div>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <h1 style={{ fontSize: '1.25rem', fontWeight: '800', letterSpacing: '-0.02em', background: 'linear-gradient(to right, #FFFFFF, #38BDF8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <h1 style={{ fontSize: '1.15rem', fontWeight: '800', letterSpacing: '-0.02em', color: '#FFFFFF' }}>
               AegisPath
             </h1>
-            <span className="badge badge-cyan" style={{ fontSize: '0.65rem' }}>GAT v2.0</span>
+            <span className="badge badge-obsidian" style={{ fontSize: '0.65rem' }}>GAT v2.0</span>
           </div>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Enterprise Attack Path Prediction & Decision Support</p>
+          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Enterprise Attack Path Prediction & Decision Support</p>
         </div>
       </div>
 
       {/* Network & Model Selector Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         {/* Graph Selection */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>Topology:</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '600' }}>Topology:</label>
           <select
             value={selectedGraphId}
             onChange={(e) => onSelectGraph(e.target.value)}
             style={{
-              background: 'rgba(17, 24, 39, 0.9)',
+              background: '#12121A',
               color: 'var(--text-primary)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '8px',
-              padding: '6px 12px',
-              fontSize: '0.85rem',
+              border: '1px solid #282836',
+              borderRadius: '6px',
+              padding: '5px 10px',
+              fontSize: '0.8rem',
               outline: 'none',
               cursor: 'pointer'
             }}
@@ -68,18 +69,18 @@ export default function Navbar({
         </div>
 
         {/* GNN Model Selection */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>AI Model:</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <label style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: '600' }}>AI Model:</label>
           <select
             value={selectedModel}
             onChange={(e) => onSelectModel(e.target.value)}
             style={{
-              background: 'rgba(17, 24, 39, 0.9)',
+              background: '#12121A',
               color: 'var(--text-primary)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: '8px',
-              padding: '6px 12px',
-              fontSize: '0.85rem',
+              border: '1px solid #282836',
+              borderRadius: '6px',
+              padding: '5px 10px',
+              fontSize: '0.8rem',
               outline: 'none',
               cursor: 'pointer'
             }}
@@ -99,33 +100,38 @@ export default function Navbar({
           disabled={isPredicting}
           style={{ opacity: isPredicting ? 0.7 : 1 }}
         >
-          {isPredicting ? <RefreshCw className="animate-spin" size={16} /> : <Zap size={16} />}
+          {isPredicting ? <RefreshCw className="animate-spin" size={14} /> : <Zap size={14} />}
           Predict Paths
         </button>
       </div>
 
       {/* Auxiliary Action Tools & Status */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <button className="btn-cyber btn-outline" onClick={onOpenVmModal}>
+          <Server size={14} />
+          VM Infrastructure
+        </button>
+
         <button className="btn-cyber btn-outline" onClick={onOpenGenerateModal}>
-          <PlusCircle size={16} />
+          <PlusCircle size={14} />
           Synthesize Network
         </button>
 
         <button className="btn-cyber btn-outline" onClick={onOpenExperimentsModal}>
-          <BarChart3 size={16} />
+          <BarChart3 size={14} />
           Benchmarks & Ablation
         </button>
 
         {/* Backend Heartbeat Indicator */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 10px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '5px 8px', background: '#12121A', borderRadius: '6px', border: '1px solid #22222E' }}>
           <div style={{
-            width: '8px',
-            height: '8px',
+            width: '7px',
+            height: '7px',
             borderRadius: '50%',
             backgroundColor: backendOnline ? '#10B981' : '#EF4444',
-            boxShadow: backendOnline ? '0 0 8px #10B981' : '0 0 8px #EF4444'
+            boxShadow: backendOnline ? '0 0 6px #10B981' : '0 0 6px #EF4444'
           }} />
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
             {backendOnline ? 'AI Core Online' : 'Connecting...'}
           </span>
         </div>

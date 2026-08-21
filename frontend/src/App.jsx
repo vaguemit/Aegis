@@ -7,6 +7,8 @@ import ExplainabilityPanel from './components/ExplainabilityPanel';
 import DefenseSimulatorPanel from './components/DefenseSimulatorPanel';
 import ScenarioModal from './components/ScenarioModal';
 import ExperimentsModal from './components/ExperimentsModal';
+import VMInfrastructureModal from './components/VMInfrastructureModal';
+import MultiHeadXAIModal from './components/MultiHeadXAIModal';
 
 export default function App() {
   const [graphs, setGraphs] = useState([]);
@@ -19,14 +21,26 @@ export default function App() {
   const [predictionResult, setPredictionResult] = useState(null);
   const [activePathIndex, setActivePathIndex] = useState(0);
 
+  // Live Attack Step Player State
+  const [timelineEvents, setTimelineEvents] = useState([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  // Modals
   const [explainResult, setExplainResult] = useState(null);
   const [isExplainModalOpen, setIsExplainModalOpen] = useState(false);
 
+  const [advancedXaiData, setAdvancedXaiData] = useState(null);
+  const [isAdvancedXaiOpen, setIsAdvancedXaiOpen] = useState(false);
+
+  const [isVmModalOpen, setIsVmModalOpen] = useState(false);
+  const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
+  const [isExperimentsModalOpen, setIsExperimentsModalOpen] = useState(false);
+
+  // Counterfactual Defense
   const [defenseResult, setDefenseResult] = useState(null);
   const [recommendations, setRecommendations] = useState([]);
 
-  const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
-  const [isExperimentsModalOpen, setIsExperimentsModalOpen] = useState(false);
   const [backendOnline, setBackendOnline] = useState(false);
 
   // 1. Initial Load: Fetch Graphs and Check Health
@@ -61,11 +75,14 @@ export default function App() {
         setPredictionResult(null);
         setDefenseResult(null);
         setRecommendations([]);
+        setTimelineEvents([]);
+        setCurrentStepIndex(0);
+        setIsPlaying(false);
       })
       .catch((err) => console.error('Error fetching graph detail:', err));
   }, [selectedGraphId]);
 
-  // 3. Trigger Attack Path Prediction
+  // 3. Trigger Attack Path Prediction & Live Timeline
   const handleTriggerPredict = async () => {
     if (!selectedGraphId) return;
     setIsPredicting(true);
@@ -84,7 +101,24 @@ export default function App() {
       setPredictionResult(data);
       setActivePathIndex(0);
 
-      // Also trigger top defense recommendations
+      // Trigger live attack timeline simulation
+      const topPathNodes = data.paths && data.paths.length > 0 ? data.paths[0].nodes : null;
+      fetch('/api/simulation/play', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          graph_id: selectedGraphId,
+          path_nodes: topPathNodes,
+        }),
+      })
+        .then((r) => r.json())
+        .then((playData) => {
+          setTimelineEvents(playData.timeline || []);
+          setCurrentStepIndex(0);
+        })
+        .catch((e) => console.error('Error fetching timeline:', e));
+
+      // Trigger top defense recommendations
       fetch('/api/defense/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -103,7 +137,24 @@ export default function App() {
     }
   };
 
-  // 4. Trigger Explainability Attribution
+  // 4. Live Attack Player Ticker
+  useEffect(() => {
+    let interval = null;
+    if (isPlaying && timelineEvents.length > 0) {
+      interval = setInterval(() => {
+        setCurrentStepIndex((prev) => {
+          if (prev >= timelineEvents.length - 1) {
+            setIsPlaying(false);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1500);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, timelineEvents]);
+
+  // 5. Trigger Explainability Attribution
   const handleOpenExplainability = async () => {
     if (!predictionResult || !predictionResult.paths) return;
     const currentPath = predictionResult.paths[activePathIndex];
@@ -126,7 +177,27 @@ export default function App() {
     }
   };
 
-  // 5. Simulate Patching a Vulnerability
+  // 6. Trigger Advanced Multi-Head XAI for specific edge
+  const handleOpenAdvancedXAI = async (sourceIdx, targetIdx) => {
+    try {
+      const res = await fetch('/api/xai/decompose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          graph_id: selectedGraphId,
+          source_idx: sourceIdx,
+          target_idx: targetIdx,
+        }),
+      });
+      const data = await res.json();
+      setAdvancedXaiData(data);
+      setIsAdvancedXaiOpen(true);
+    } catch (err) {
+      console.error('Error decomposing multi-head XAI:', err);
+    }
+  };
+
+  // 7. Simulate Patching a Vulnerability
   const handleSimulatePatch = async (nodeIndex) => {
     try {
       const res = await fetch('/api/defense/simulate', {
@@ -145,12 +216,7 @@ export default function App() {
     }
   };
 
-  // 6. Apply Mitigation from Recommendations
-  const handleApplyRecommendation = (rec) => {
-    setDefenseResult(rec);
-  };
-
-  // 7. Synthesize New Graph Scenario
+  // 8. Synthesize New Graph Scenario
   const handleGenerateGraph = async (payload) => {
     try {
       const res = await fetch('/api/graphs/generate', {
@@ -175,17 +241,19 @@ export default function App() {
     }
   };
 
+  // Active path to highlight on Cytoscape canvas
   const activePath = predictionResult && predictionResult.paths ? predictionResult.paths[activePathIndex] : null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: 'var(--bg-main)', overflow: 'hidden' }}>
-      {/* Top Cyber Command Center Navbar */}
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: 'var(--bg-pitch-black)', overflow: 'hidden' }}>
+      {/* Top Obsidian Navbar */}
       <Navbar
         selectedGraphId={selectedGraphId}
         graphs={graphs}
         onSelectGraph={setSelectedGraphId}
         onOpenGenerateModal={() => setIsGenerateModalOpen(true)}
         onOpenExperimentsModal={() => setIsExperimentsModalOpen(true)}
+        onOpenVmModal={() => setIsVmModalOpen(true)}
         selectedModel={selectedModel}
         onSelectModel={setSelectedModel}
         isPredicting={isPredicting}
@@ -193,20 +261,27 @@ export default function App() {
         backendOnline={backendOnline}
       />
 
-      {/* Main Operations Grid Layout */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '320px 1fr 340px', gap: '14px', margin: '0 16px 14px 16px', overflow: 'hidden' }}>
-        {/* Left Column: Attack Path Simulator */}
+      {/* Main Command Center Layout */}
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '330px 1fr 340px', gap: '12px', margin: '0 14px 12px 14px', overflow: 'hidden' }}>
+        {/* Left Column: Attack Path Simulator & Live Player */}
         <div style={{ height: '100%', overflow: 'hidden' }}>
           <AttackPredictionPanel
             predictionResult={predictionResult}
             activePathIndex={activePathIndex}
             onSelectPathIndex={setActivePathIndex}
             onOpenExplainability={handleOpenExplainability}
+            onOpenAdvancedXAI={handleOpenAdvancedXAI}
+            timelineEvents={timelineEvents}
+            currentStepIndex={currentStepIndex}
+            onStepChange={setCurrentStepIndex}
+            isPlaying={isPlaying}
+            onTogglePlay={() => setIsPlaying(!isPlaying)}
+            onReset={() => { setCurrentStepIndex(0); setIsPlaying(false); }}
           />
         </div>
 
         {/* Center Column: Interactive Cytoscape Graph Canvas */}
-        <div className="glass-panel" style={{ height: '100%', overflow: 'hidden' }}>
+        <div className="glass-panel" style={{ height: '100%', overflow: 'hidden', background: '#07070A', border: '1px solid #1E1E28' }}>
           <NetworkGraphView
             graphData={graphData}
             activeAttackPath={activePath}
@@ -216,8 +291,8 @@ export default function App() {
           />
         </div>
 
-        {/* Right Column: Split into Node Inspector (Top) and Counterfactual Defense (Bottom) */}
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: '14px', overflow: 'hidden' }}>
+        {/* Right Column: Node/VM Inspector (Top) and Counterfactual Defense (Bottom) */}
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden' }}>
           <div style={{ flex: '1 1 50%', minHeight: 0 }}>
             <InspectorPanel
               selectedNode={selectedNode}
@@ -228,13 +303,25 @@ export default function App() {
             <DefenseSimulatorPanel
               defenseResult={defenseResult}
               recommendations={recommendations}
-              onApplyRecommendation={handleApplyRecommendation}
+              onApplyRecommendation={(rec) => setDefenseResult(rec)}
             />
           </div>
         </div>
       </div>
 
       {/* Modals */}
+      <VMInfrastructureModal
+        isOpen={isVmModalOpen}
+        onClose={() => setIsVmModalOpen(false)}
+        graphId={selectedGraphId}
+      />
+
+      <MultiHeadXAIModal
+        isOpen={isAdvancedXaiOpen}
+        onClose={() => setIsAdvancedXaiOpen(false)}
+        xaiData={advancedXaiData}
+      />
+
       <ScenarioModal
         isOpen={isGenerateModalOpen}
         onClose={() => setIsGenerateModalOpen(false)}
