@@ -312,14 +312,54 @@ export default function NetworkGraphView({
             'z-index': 10,
           },
         },
+        /* GREEN SECURED DEFENSE CLASSES */
+        {
+          selector: '.defense-secured-node',
+          style: {
+            'border-width': 4,
+            'border-color': '#10B981',
+            'shadow-blur': 22,
+            'shadow-color': '#10B981',
+            'shadow-opacity': 0.95,
+            'opacity': 1,
+          },
+        },
+        {
+          selector: '.defense-secured-edge',
+          style: {
+            'width': 4.5,
+            'line-color': '#10B981',
+            'target-arrow-color': '#10B981',
+            'opacity': 1,
+            'line-style': 'solid',
+            'arrow-scale': 1.3,
+            'shadow-blur': 14,
+            'shadow-color': '#10B981',
+            'shadow-opacity': 0.9,
+            'z-index': 12,
+          },
+        },
+        {
+          selector: '.defense-protected-target',
+          style: {
+            'border-width': 5,
+            'border-color': '#10B981',
+            'shadow-blur': 28,
+            'shadow-color': '#10B981',
+            'shadow-opacity': 1.0,
+            'background-color': '#064E3B',
+            'opacity': 1,
+          },
+        },
         {
           selector: '.defense-patched-node',
           style: {
             'border-width': 5,
             'border-color': '#10B981',
-            'shadow-blur': 25,
+            'shadow-blur': 28,
             'shadow-color': '#10B981',
             'shadow-opacity': 1.0,
+            'background-color': '#065F46',
             'opacity': 1,
           },
         },
@@ -327,14 +367,14 @@ export default function NetworkGraphView({
           selector: '.defense-severed-edge',
           style: {
             'width': 4.5,
-            'line-color': '#EF4444',
+            'line-color': '#10B981',
             'line-style': 'dashed',
             'line-dash-pattern': [6, 4],
             'target-arrow-shape': 'tee',
-            'target-arrow-color': '#EF4444',
+            'target-arrow-color': '#10B981',
             'opacity': 1,
-            'shadow-blur': 14,
-            'shadow-color': '#EF4444',
+            'shadow-blur': 16,
+            'shadow-color': '#10B981',
             'shadow-opacity': 0.9,
             'z-index': 15,
           },
@@ -482,59 +522,55 @@ export default function NetworkGraphView({
 
     // Reset special highlight classes
     cy.elements().removeClass(
-      'attack-path-node attack-path-edge defense-patched-node defense-severed-edge defense-unreachable-edge defense-unreachable-node defense-detour-edge'
+      'attack-path-node attack-path-edge defense-patched-node defense-secured-node defense-secured-edge defense-protected-target defense-severed-edge defense-unreachable-edge defense-unreachable-node defense-detour-edge'
     );
 
     const attackNodes = activeAttackPath?.nodes || [];
 
-    // 1. Highlight baseline attack path
-    if (attackNodes.length > 0) {
-      attackNodes.forEach((nodeIdx) => {
-        cy.nodes(`[index = ${nodeIdx}]`).addClass('attack-path-node');
-      });
-
-      for (let i = 0; i < attackNodes.length - 1; i++) {
-        const u = attackNodes[i];
-        const v = attackNodes[i + 1];
-        // Match both Cytoscape node IDs (n_u) and explicit index data
-        const edge = cy.edges(`[source = "n_${u}"][target = "n_${v}"], [source_idx = ${u}][target_idx = ${v}]`);
-        edge.addClass('attack-path-edge');
-      }
-    }
-
-    // 2. If a Defense is actively simulated, visualize the cut-off point & severed path!
+    // CASE A: IF DEFENSE IS ACTIVE -> TURN THE ENTIRE PATH INTO A VIBRANT SECURED GREEN PATH!
     if (defenseResult) {
       const patchedIdx = defenseResult.mitigated_node_idx;
       const patchedNode = cy.nodes(`[index = ${patchedIdx}]`);
       patchedNode.addClass('defense-patched-node');
 
-      // Find where in the attack path the cut-off happens
       const cutPoint = attackNodes.indexOf(patchedIdx);
 
-      if (cutPoint !== -1) {
-        // Severed incoming and outgoing attack edge at the patched node
-        if (cutPoint > 0) {
-          const prevIdx = attackNodes[cutPoint - 1];
-          const severedInEdge = cy.edges(`[source = "n_${prevIdx}"][target = "n_${patchedIdx}"], [source_idx = ${prevIdx}][target_idx = ${patchedIdx}]`);
-          severedInEdge.removeClass('attack-path-edge').addClass('defense-severed-edge');
+      // 1. Turn all hops leading up to the defense into SECURED GREEN lines
+      const upToIdx = cutPoint !== -1 ? cutPoint : attackNodes.length;
+      for (let i = 0; i <= upToIdx && i < attackNodes.length; i++) {
+        const nIdx = attackNodes[i];
+        if (nIdx === patchedIdx) {
+          cy.nodes(`[index = ${nIdx}]`).addClass('defense-patched-node');
+        } else {
+          cy.nodes(`[index = ${nIdx}]`).addClass('defense-secured-node');
         }
+      }
 
-        // All subsequent downstream nodes/edges in original path become UNREACHABLE
+      for (let i = 0; i < upToIdx && i < attackNodes.length - 1; i++) {
+        const u = attackNodes[i];
+        const v = attackNodes[i + 1];
+        const edge = cy.edges(`[source = "n_${u}"][target = "n_${v}"], [source_idx = ${u}][target_idx = ${v}]`);
+        if (v === patchedIdx) {
+          edge.addClass('defense-severed-edge');
+        } else {
+          edge.addClass('defense-secured-edge');
+        }
+      }
+
+      // 2. Turn all downstream hops (that adversary cannot reach) into faded unreachable grey lines
+      if (cutPoint !== -1) {
         for (let i = cutPoint + 1; i < attackNodes.length; i++) {
           const unreachableNodeIdx = attackNodes[i];
-          cy.nodes(`[index = ${unreachableNodeIdx}]`).removeClass('attack-path-node').addClass('defense-unreachable-node');
+          if (i === attackNodes.length - 1) {
+            // Target Crown Jewel is now protected!
+            cy.nodes(`[index = ${unreachableNodeIdx}]`).addClass('defense-protected-target');
+          } else {
+            cy.nodes(`[index = ${unreachableNodeIdx}]`).addClass('defense-unreachable-node');
+          }
 
           const prevNodeIdx = attackNodes[i - 1];
           const unreachEdge = cy.edges(`[source = "n_${prevNodeIdx}"][target = "n_${unreachableNodeIdx}"], [source_idx = ${prevNodeIdx}][target_idx = ${unreachableNodeIdx}]`);
-          unreachEdge.removeClass('attack-path-edge').addClass('defense-unreachable-edge');
-        }
-      } else if (defenseResult.status === 'severed') {
-        // If whole path severed, mark last hop as severed
-        if (attackNodes.length >= 2) {
-          const u = attackNodes[0];
-          const v = attackNodes[1];
-          const edge = cy.edges(`[source = "n_${u}"][target = "n_${v}"], [source_idx = ${u}][target_idx = ${v}]`);
-          edge.removeClass('attack-path-edge').addClass('defense-severed-edge');
+          unreachEdge.addClass('defense-unreachable-edge');
         }
       }
 
@@ -547,6 +583,19 @@ export default function NetworkGraphView({
           const detourEdge = cy.edges(`[source = "n_${u}"][target = "n_${v}"], [source_idx = ${u}][target_idx = ${v}]`);
           detourEdge.addClass('defense-detour-edge');
         }
+      }
+    } 
+    // CASE B: NO DEFENSE ACTIVE -> RENDER RED ATTACK PATH
+    else if (attackNodes.length > 0) {
+      attackNodes.forEach((nodeIdx) => {
+        cy.nodes(`[index = ${nodeIdx}]`).addClass('attack-path-node');
+      });
+
+      for (let i = 0; i < attackNodes.length - 1; i++) {
+        const u = attackNodes[i];
+        const v = attackNodes[i + 1];
+        const edge = cy.edges(`[source = "n_${u}"][target = "n_${v}"], [source_idx = ${u}][target_idx = ${v}]`);
+        edge.addClass('attack-path-edge');
       }
     }
   }, [activeAttackPath, defenseResult]);
@@ -589,11 +638,11 @@ export default function NetworkGraphView({
 
           <div>
             <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#34D399', display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span>DEFENSE ACTIVE:</span>
+              <span>ENTERPRISE SECURED:</span>
               <span style={{ color: '#FFFFFF' }}>{defenseResult.mitigated_node_name || 'Patch Applied'}</span>
             </div>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-              Status: <strong style={{ color: '#10B981' }}>{defenseResult.status === 'severed' ? '🛑 Path Severed (-100% Risk)' : '⚠️ Path Diverted to Detour'}</strong>
+              Status: <strong style={{ color: '#10B981' }}>{defenseResult.status === 'severed' ? '🛑 Attack Severed • 100% Risk Reduction' : '⚠️ Path Diverted to Detour'}</strong>
             </div>
           </div>
 
@@ -764,7 +813,7 @@ export default function NetworkGraphView({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
           <div style={{ width: '8px', height: '8px', background: '#10B981', borderRadius: '2px' }} />
-          <span>🛡️ Patched</span>
+          <span>🛡️ Secured Defense</span>
         </div>
       </div>
 
