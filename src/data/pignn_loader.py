@@ -13,12 +13,16 @@ from torch.utils.data import Dataset, DataLoader
 from src.data.schema import NetworkGraphData, NUM_NODE_FEATURES, NUM_EDGE_TYPES
 
 
-def load_pignn_graph(file_path: Union[str, Path]) -> NetworkGraphData:
+def load_pignn_graph(
+    file_path: Union[str, Path],
+    target_dim: Optional[int] = None
+) -> NetworkGraphData:
     """
     Loads a single preprocessed graph .pt file into a NetworkGraphData container.
 
     Args:
         file_path: Path to the .pt file.
+        target_dim: Optional feature dimension to pad to (e.g. 20).
 
     Returns:
         NetworkGraphData instance containing x_matrix, adj_tensor, y_matrix,
@@ -30,8 +34,12 @@ def load_pignn_graph(file_path: Union[str, Path]) -> NetworkGraphData:
 
     raw_data = torch.load(path_obj, weights_only=False)
     adj_tensor = raw_data["adj_tensor"].float()    # Shape: (N, N, 16)
-    x_matrix = raw_data["X_matrix"].float()        # Shape: (N, 20)
+    x_matrix = raw_data["X_matrix"].float()        # Shape: (N, feature_dim)
     y_matrix = raw_data["Y_matrix"].float()        # Shape: (N, N)
+
+    if target_dim is not None and x_matrix.shape[1] < target_dim:
+        pad = torch.zeros((x_matrix.shape[0], target_dim - x_matrix.shape[1]), dtype=x_matrix.dtype)
+        x_matrix = torch.cat([x_matrix, pad], dim=-1)
 
     graph_id = path_obj.stem
     num_nodes = x_matrix.shape[0]
@@ -56,6 +64,7 @@ class PIGNNDataset(Dataset):
         data_dir: Union[str, Path] = "data/_data_",
         preload: bool = False,
         max_samples: Optional[int] = None,
+        pad_to_dim: Optional[int] = 20,
     ):
         self.data_dir = Path(data_dir)
         if not self.data_dir.exists():
@@ -71,11 +80,12 @@ class PIGNNDataset(Dataset):
             self.file_paths = self.file_paths[:max_samples]
 
         self.preload = preload
+        self.pad_to_dim = pad_to_dim
         self._cache: Dict[int, NetworkGraphData] = {}
 
         if self.preload:
             for idx in range(len(self.file_paths)):
-                self._cache[idx] = load_pignn_graph(self.file_paths[idx])
+                self._cache[idx] = load_pignn_graph(self.file_paths[idx], target_dim=self.pad_to_dim)
 
     def __len__(self) -> int:
         return len(self.file_paths)
@@ -91,7 +101,7 @@ class PIGNNDataset(Dataset):
         if idx in self._cache:
             graph_data = self._cache[idx]
         else:
-            graph_data = load_pignn_graph(self.file_paths[idx])
+            graph_data = load_pignn_graph(self.file_paths[idx], target_dim=self.pad_to_dim)
 
         return graph_data.adj_tensor, graph_data.x_matrix, graph_data.y_matrix
 
@@ -99,7 +109,7 @@ class PIGNNDataset(Dataset):
         """Retrieves the full NetworkGraphData object at index."""
         if idx in self._cache:
             return self._cache[idx]
-        return load_pignn_graph(self.file_paths[idx])
+        return load_pignn_graph(self.file_paths[idx], target_dim=self.pad_to_dim)
 
     def get_statistics(self) -> Dict[str, Any]:
         """Computes summary statistics across the dataset."""
