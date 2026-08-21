@@ -304,6 +304,15 @@ export default function App() {
         backendOnline={backendOnline}
         currentStoryId={currentStoryId}
         onSelectStory={handleSelectStory}
+        onQuickGenerateNodes={(count) => {
+          handleGenerateGraph({
+            scenario_name: `syn_net_${count}n`,
+            target_nodes: count,
+            edge_multiplier: 2.2,
+            cve_probability: 0.25,
+            spn_probability: 0.35,
+          });
+        }}
       />
 
       {/* Main Command Center Layout */}

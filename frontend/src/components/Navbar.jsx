@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Shield,
   PlusCircle,
@@ -7,9 +7,9 @@ import {
   Zap,
   Server,
   Sparkles,
-  Sliders,
   Network,
   Cpu,
+  Sliders,
 } from 'lucide-react';
 import { DEMO_STORIES } from './GuidedDemoBanner';
 
@@ -27,7 +27,10 @@ export default function Navbar({
   backendOnline,
   currentStoryId,
   onSelectStory,
+  onQuickGenerateNodes,
 }) {
+  const [sliderNodes, setSliderNodes] = useState(60);
+
   return (
     <header
       style={{
@@ -39,7 +42,7 @@ export default function Navbar({
         background: '#0B0B10',
         border: '1px solid #1E1E28',
         borderRadius: '10px',
-        gap: '12px',
+        gap: '10px',
         flexWrap: 'nowrap',
       }}
     >
@@ -82,7 +85,7 @@ export default function Navbar({
       </div>
 
       {/* Center Controls Group */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'nowrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap' }}>
         {/* Story Scenario Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#12121A', padding: '4px 8px', borderRadius: '6px', border: '1px solid #22222E' }}>
           <Sparkles size={13} color="#38BDF8" />
@@ -94,11 +97,11 @@ export default function Navbar({
               background: 'transparent',
               color: '#FFFFFF',
               border: 'none',
-              fontSize: '0.75rem',
+              fontSize: '0.74rem',
               fontWeight: '600',
               outline: 'none',
               cursor: 'pointer',
-              maxWidth: '210px',
+              maxWidth: '190px',
             }}
           >
             {DEMO_STORIES.map((s) => (
@@ -109,10 +112,45 @@ export default function Navbar({
           </select>
         </div>
 
-        {/* Network Topology Selector */}
+        {/* Dynamic Node Count Slider */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: '#12121A',
+            padding: '4px 10px',
+            borderRadius: '6px',
+            border: '1px solid #22222E',
+          }}
+          title="Adjust total network node scale (15 to 500 nodes)"
+        >
+          <Sliders size={12} color="#38BDF8" />
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+            Nodes: <strong style={{ color: '#38BDF8' }}>{sliderNodes}</strong>
+          </span>
+          <input
+            type="range"
+            min="15"
+            max="500"
+            step="5"
+            value={sliderNodes}
+            onChange={(e) => setSliderNodes(Number(e.target.value))}
+            style={{ width: '80px', accentColor: '#38BDF8', cursor: 'pointer' }}
+          />
+          <button
+            className="btn-cyber"
+            onClick={() => onQuickGenerateNodes && onQuickGenerateNodes(sliderNodes)}
+            style={{ padding: '2px 6px', fontSize: '0.66rem', background: '#38BDF8', color: '#000000', fontWeight: '700' }}
+            title="Generate network with this exact number of nodes"
+          >
+            Apply
+          </button>
+        </div>
+
+        {/* Topology Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#12121A', padding: '4px 8px', borderRadius: '6px', border: '1px solid #22222E' }}>
-          <Network size={13} color="#A78BFA" />
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>Network:</span>
+          <Network size={12} color="#A78BFA" />
           <select
             value={selectedGraphId}
             onChange={(e) => onSelectGraph(e.target.value)}
@@ -120,10 +158,10 @@ export default function Navbar({
               background: 'transparent',
               color: '#FFFFFF',
               border: 'none',
-              fontSize: '0.75rem',
+              fontSize: '0.74rem',
               outline: 'none',
               cursor: 'pointer',
-              maxWidth: '140px',
+              maxWidth: '120px',
             }}
           >
             {graphs.map((g) => (
@@ -136,8 +174,7 @@ export default function Navbar({
 
         {/* AI Model Selector */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#12121A', padding: '4px 8px', borderRadius: '6px', border: '1px solid #22222E' }}>
-          <Cpu size={13} color="#10B981" />
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>AI:</span>
+          <Cpu size={12} color="#10B981" />
           <select
             value={selectedModel}
             onChange={(e) => onSelectModel(e.target.value)}
@@ -145,7 +182,7 @@ export default function Navbar({
               background: 'transparent',
               color: '#FFFFFF',
               border: 'none',
-              fontSize: '0.75rem',
+              fontSize: '0.74rem',
               outline: 'none',
               cursor: 'pointer',
             }}
@@ -158,23 +195,23 @@ export default function Navbar({
           </select>
         </div>
 
-        {/* Primary Prediction Action Button */}
+        {/* Predict Action Button */}
         <button
           className="btn-cyber btn-primary"
           onClick={onTriggerPredict}
           disabled={isPredicting}
           style={{
-            padding: '6px 14px',
-            fontSize: '0.76rem',
+            padding: '5px 12px',
+            fontSize: '0.75rem',
             fontWeight: '700',
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '5px',
             flexShrink: 0,
             opacity: isPredicting ? 0.7 : 1,
           }}
         >
-          {isPredicting ? <RefreshCw className="animate-spin" size={13} /> : <Zap size={13} />}
+          {isPredicting ? <RefreshCw className="animate-spin" size={12} /> : <Zap size={12} />}
           Predict Paths
         </button>
       </div>
@@ -184,28 +221,19 @@ export default function Navbar({
         <button
           className="btn-cyber btn-outline"
           onClick={onOpenVmModal}
-          style={{ padding: '5px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+          style={{ padding: '5px 8px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px' }}
           title="Virtual Machine Hypervisors, Open Ports & Syslog Telemetry"
         >
-          <Server size={13} /> VMs
-        </button>
-
-        <button
-          className="btn-cyber btn-outline"
-          onClick={onOpenGenerateModal}
-          style={{ padding: '5px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '5px' }}
-          title="Synthesize Custom Network with Arbitrary Nodes and Edges"
-        >
-          <PlusCircle size={13} /> Custom Net
+          <Server size={12} /> VMs
         </button>
 
         <button
           className="btn-cyber btn-outline"
           onClick={onOpenExperimentsModal}
-          style={{ padding: '5px 10px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+          style={{ padding: '5px 8px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '4px' }}
           title="Run Model Comparisons, Ablation Studies & Scalability Benchmarks"
         >
-          <BarChart3 size={13} /> Benchmarks
+          <BarChart3 size={12} /> Benchmarks
         </button>
 
         {/* Backend Heartbeat Indicator */}
@@ -213,12 +241,12 @@ export default function Navbar({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '5px',
-            padding: '5px 8px',
+            gap: '4px',
+            padding: '4px 7px',
             background: '#12121A',
             borderRadius: '6px',
             border: '1px solid #22222E',
-            fontSize: '0.7rem',
+            fontSize: '0.68rem',
           }}
         >
           <div
