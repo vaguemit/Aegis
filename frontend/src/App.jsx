@@ -87,7 +87,10 @@ export default function App() {
       .then((data) => {
         setGraphData(data);
         const sIdx = data.source_idx ?? 0;
-        const tIdx = data.target_idx ?? (data.nodes.length > 1 ? data.nodes.length - 1 : 0);
+        let tIdx = data.target_idx ?? (data.nodes.length > 1 ? data.nodes.length - 1 : 0);
+        if (sIdx === tIdx && data.nodes && data.nodes.length > 1) {
+          tIdx = sIdx === 0 ? 1 : 0;
+        }
         setSelectedSourceIdx(sIdx);
         setSelectedTargetIdx(tIdx);
         setSelectedNode(null);
@@ -97,6 +100,11 @@ export default function App() {
         setTimelineEvents([]);
         setCurrentStepIndex(0);
         setIsPlaying(false);
+
+        // Auto-predict immediately so graph always has paths displayed!
+        setTimeout(() => {
+          handleTriggerPredict(sIdx, tIdx);
+        }, 50);
       })
       .catch((err) => console.error('Error fetching graph detail:', err));
   }, [selectedGraphId]);
@@ -361,6 +369,8 @@ export default function App() {
             isPlaying={isPlaying}
             onTogglePlay={() => setIsPlaying(!isPlaying)}
             onReset={() => { setCurrentStepIndex(0); setIsPlaying(false); }}
+            isPredicting={isPredicting}
+            onTriggerPredict={handleTriggerPredict}
           />
         </div>
 

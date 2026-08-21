@@ -10,6 +10,8 @@ import {
   Crosshair,
   Layers,
   PlayCircle,
+  Zap,
+  RefreshCw,
 } from 'lucide-react';
 import LiveAttackTimeline from './LiveAttackTimeline';
 
@@ -30,6 +32,8 @@ export default function AttackPredictionPanel({
   isPlaying,
   onTogglePlay,
   onReset,
+  isPredicting,
+  onTriggerPredict,
 }) {
   const [panelTab, setPanelTab] = useState('vectors'); // 'vectors' | 'timeline'
   const nodes = graphData?.nodes || [];
@@ -119,13 +123,37 @@ export default function AttackPredictionPanel({
             ))}
           </select>
         </div>
+
+        {/* Quick Predict Action Inside Left Panel */}
+        <button
+          className="btn-cyber btn-primary"
+          onClick={() => onTriggerPredict && onTriggerPredict(selectedSourceIdx, selectedTargetIdx)}
+          disabled={isPredicting}
+          style={{
+            marginTop: '3px',
+            width: '100%',
+            padding: '5px 8px',
+            fontSize: '0.74rem',
+            fontWeight: '800',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '5px',
+            background: '#F43F5E',
+            border: 'none',
+            color: '#FFFFFF',
+          }}
+        >
+          {isPredicting ? <RefreshCw className="animate-spin" size={12} /> : <Zap size={12} />}
+          {isPredicting ? 'Forecasting Paths...' : 'Predict Attack Trajectory'}
+        </button>
       </div>
 
       {(!predictionResult || !predictionResult.paths || predictionResult.paths.length === 0) ? (
-        <div style={{ padding: '30px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <div style={{ padding: '24px 14px', textAlign: 'center', color: 'var(--text-muted)' }}>
           <Route size={28} color="var(--text-muted)" style={{ margin: '0 auto 8px auto' }} />
-          <p style={{ fontSize: '0.74rem', margin: 0 }}>
-            Click <strong>"Predict Paths"</strong> in the top navbar to forecast multi-hop lateral movement routes.
+          <p style={{ fontSize: '0.74rem', margin: 0, lineHeight: 1.4 }}>
+            Click <strong>"Predict Attack Trajectory"</strong> above to forecast lateral movement paths from the selected foothold to target.
           </p>
         </div>
       ) : (

@@ -38,6 +38,15 @@ def predict_attack_paths(req: PredictRequest):
     if target_idx is None:
         target_idx = graph_data.num_nodes - 1
 
+    # Guarantee distinct starting foothold and target crown jewel
+    if source_idx == target_idx and graph_data.num_nodes > 1:
+        if graph_data.target_idx is not None and graph_data.target_idx != source_idx:
+            target_idx = graph_data.target_idx
+        elif source_idx == 0:
+            target_idx = 1
+        else:
+            target_idx = 0
+
     model_key = req.model_type.lower()
     if model_key not in graph_manager.models:
         model_key = "gat"
