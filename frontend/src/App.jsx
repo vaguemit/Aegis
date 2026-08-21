@@ -1,32 +1,34 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import NetworkGraphView from './components/NetworkGraphView';
-import InspectorPanel from './components/InspectorPanel';
 import AttackPredictionPanel from './components/AttackPredictionPanel';
-import ExplainabilityPanel from './components/ExplainabilityPanel';
+import InspectorPanel from './components/InspectorPanel';
 import DefenseSimulatorPanel from './components/DefenseSimulatorPanel';
+import ExplainabilityPanel from './components/ExplainabilityPanel';
 import ScenarioModal from './components/ScenarioModal';
 import ExperimentsModal from './components/ExperimentsModal';
 import VMInfrastructureModal from './components/VMInfrastructureModal';
 import MultiHeadXAIModal from './components/MultiHeadXAIModal';
-import GuidedDemoBanner, { DEMO_STORIES } from './components/GuidedDemoBanner';
+import { DEMO_STORIES } from './components/GuidedDemoBanner';
+import { Server, ShieldCheck } from 'lucide-react';
 
 export default function App() {
+  // Graph State
   const [graphs, setGraphs] = useState([]);
   const [selectedGraphId, setSelectedGraphId] = useState('');
   const [graphData, setGraphData] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
-  const [selectedModel, setSelectedModel] = useState('gat');
 
-  // Guided Presentation Mode
-  const [isGuidedDemoOpen, setIsGuidedDemoOpen] = useState(true);
+  // Scenario / Story State
   const [currentStoryId, setCurrentStoryId] = useState('phished_hr_laptop');
 
-  const [isPredicting, setIsPredicting] = useState(false);
+  // Prediction State
+  const [selectedModel, setSelectedModel] = useState('gat');
   const [predictionResult, setPredictionResult] = useState(null);
   const [activePathIndex, setActivePathIndex] = useState(0);
+  const [isPredicting, setIsPredicting] = useState(false);
 
-  // Live Attack Step Player State
+  // Live Attack Simulation
   const [timelineEvents, setTimelineEvents] = useState([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -45,6 +47,9 @@ export default function App() {
   // Origin & Target Selection
   const [selectedSourceIdx, setSelectedSourceIdx] = useState(0);
   const [selectedTargetIdx, setSelectedTargetIdx] = useState(0);
+
+  // Right Side Panel Tab: 'inspector' | 'defense'
+  const [rightPanelTab, setRightPanelTab] = useState('inspector');
 
   // Counterfactual Defense
   const [defenseResult, setDefenseResult] = useState(null);
@@ -168,15 +173,15 @@ export default function App() {
           return prev + 1;
         });
       }, 1500);
+    } else {
+      clearInterval(interval);
     }
     return () => clearInterval(interval);
   }, [isPlaying, timelineEvents]);
 
-  // 5. Trigger Explainability Attribution
+  // 5. Trigger Explainability
   const handleOpenExplainability = async () => {
-    if (!predictionResult || !predictionResult.paths) return;
-    const currentPath = predictionResult.paths[activePathIndex];
-    if (!currentPath) return;
+    if (!selectedGraphId || !activePath) return;
 
     try {
       const res = await fetch('/api/explain', {
@@ -184,21 +189,23 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           graph_id: selectedGraphId,
-          path_nodes: currentPath.nodes,
+          path_nodes: activePath.nodes,
         }),
       });
       const data = await res.json();
       setExplainResult(data);
       setIsExplainModalOpen(true);
     } catch (err) {
-      console.error('Error fetching explainability:', err);
+      console.error('Error fetching XAI explanation:', err);
     }
   };
 
-  // 6. Trigger Advanced Multi-Head XAI for specific edge
+  // 6. Trigger Advanced Multi-Head XAI
   const handleOpenAdvancedXAI = async (sourceIdx, targetIdx) => {
+    if (!selectedGraphId) return;
+
     try {
-      const res = await fetch('/api/xai/decompose', {
+      const res = await fetch('/api/xai/multi_head_attention', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -211,36 +218,38 @@ export default function App() {
       setAdvancedXaiData(data);
       setIsAdvancedXaiOpen(true);
     } catch (err) {
-      console.error('Error decomposing multi-head XAI:', err);
+      console.error('Error fetching advanced multi-head XAI:', err);
     }
   };
 
-  // 7. Simulate Patching a Vulnerability
-  const handleSimulatePatch = async (nodeIndex) => {
+  // 7. Simulate Patch Defense
+  const handleSimulatePatch = async (nodeIdx) => {
+    if (!selectedGraphId) return;
+
     try {
-      const res = await fetch('/api/defense/simulate', {
+      const res = await fetch('/api/defense/simulate_patch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           graph_id: selectedGraphId,
-          action_type: 'patch',
-          target_node_idx: nodeIndex,
+          node_idx: nodeIdx,
         }),
       });
       const data = await res.json();
       setDefenseResult(data);
+      setRightPanelTab('defense');
     } catch (err) {
-      console.error('Error simulating patch:', err);
+      console.error('Error simulating patch defense:', err);
     }
   };
 
-  // 8. Synthesize New Graph Scenario
-  const handleGenerateGraph = async (payload) => {
+  // 8. Generate Synthetic Graph
+  const handleGenerateGraph = async (config) => {
     try {
       const res = await fetch('/api/graphs/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(config),
       });
       const data = await res.json();
       setGraphs((prev) => [
@@ -259,39 +268,28 @@ export default function App() {
     }
   };
 
-  // Guided Demo Storyline Handlers
+  // Guided Demo Scenario Selector Handler
   const handleSelectStory = (storyId) => {
     setCurrentStoryId(storyId);
     if (!graphData || !graphData.nodes) return;
     const story = DEMO_STORIES.find((s) => s.id === storyId);
     if (!story) return;
 
-    // Find best matching start and target nodes
     const startNode = graphData.nodes.find((n) => n.name.toLowerCase().includes(story.startNodeName.toLowerCase().split('-')[0])) || graphData.nodes[0];
     const targetNode = graphData.nodes.find((n) => n.name.toLowerCase().includes(story.targetNodeName.toLowerCase().split('-')[0])) || graphData.nodes[graphData.nodes.length - 1];
 
     if (startNode) setSelectedSourceIdx(startNode.index);
     if (targetNode) setSelectedTargetIdx(targetNode.index);
-  };
 
-  const handleRunStoryPrediction = () => {
-    handleTriggerPredict(selectedSourceIdx, selectedTargetIdx);
-    setIsPlaying(true);
-  };
-
-  const handleApplyStoryFix = () => {
-    if (graphData && graphData.nodes) {
-      const vulnNode = graphData.nodes.find((n) => n.is_vulnerable) || graphData.nodes[1];
-      if (vulnNode) handleSimulatePatch(vulnNode.index);
-    }
+    handleTriggerPredict(startNode?.index, targetNode?.index);
   };
 
   // Active path to highlight on Cytoscape canvas
   const activePath = predictionResult && predictionResult.paths ? predictionResult.paths[activePathIndex] : null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: 'var(--bg-pitch-black)', overflow: 'hidden' }}>
-      {/* Top Obsidian Navbar */}
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: '#050508', overflow: 'hidden' }}>
+      {/* Top Navbar */}
       <Navbar
         selectedGraphId={selectedGraphId}
         graphs={graphs}
@@ -304,23 +302,13 @@ export default function App() {
         isPredicting={isPredicting}
         onTriggerPredict={() => handleTriggerPredict()}
         backendOnline={backendOnline}
-        isGuidedDemoOpen={isGuidedDemoOpen}
-        onToggleGuidedDemo={() => setIsGuidedDemoOpen(!isGuidedDemoOpen)}
+        currentStoryId={currentStoryId}
+        onSelectStory={handleSelectStory}
       />
 
-      {/* Guided Story Presentation Banner */}
-      {isGuidedDemoOpen && (
-        <GuidedDemoBanner
-          currentStoryId={currentStoryId}
-          onSelectStory={handleSelectStory}
-          onRunStoryPrediction={handleRunStoryPrediction}
-          onApplyStoryFix={handleApplyStoryFix}
-        />
-      )}
-
       {/* Main Command Center Layout */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '330px 1fr 340px', gap: '12px', margin: '0 14px 12px 14px', overflow: 'hidden' }}>
-        {/* Left Column: Attack Path Simulator & Live Player */}
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '310px 1fr 330px', gap: '10px', margin: '0 14px 10px 14px', overflow: 'hidden' }}>
+        {/* Left Column: Attack Simulator & Playback */}
         <div style={{ height: '100%', overflow: 'hidden' }}>
           <AttackPredictionPanel
             graphData={graphData}
@@ -348,39 +336,99 @@ export default function App() {
           />
         </div>
 
-        {/* Center Column: Interactive Cytoscape Graph Canvas */}
-        <div className="glass-panel" style={{ height: '100%', overflow: 'hidden', background: '#07070A', border: '1px solid #1E1E28' }}>
+        {/* Center Column: Full-Height Interactive Canvas */}
+        <div style={{ height: '100%', overflow: 'hidden', background: '#08080C', border: '1px solid #1A1A24', borderRadius: '10px' }}>
           <NetworkGraphView
             graphData={graphData}
             activeAttackPath={activePath}
             mitigatedAttackPath={defenseResult?.mitigated_path}
-            onSelectNode={setSelectedNode}
+            onSelectNode={(node) => {
+              setSelectedNode(node);
+              setRightPanelTab('inspector');
+            }}
             selectedNodeId={selectedNode ? selectedNode.id : null}
           />
         </div>
 
-        {/* Right Column: Node/VM Inspector (Top) and Counterfactual Defense (Bottom) */}
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden' }}>
-          <div style={{ flex: '1 1 50%', minHeight: 0 }}>
-            <InspectorPanel
-              selectedNode={selectedNode}
-              onSimulatePatch={handleSimulatePatch}
-              onSetSource={(idx) => {
-                setSelectedSourceIdx(idx);
-                handleTriggerPredict(idx, selectedTargetIdx);
+        {/* Right Column: Full-Height Tabbed Posture & Decision Center */}
+        <div
+          style={{
+            height: '100%',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            background: '#0B0B10',
+            border: '1px solid #1E1E28',
+            borderRadius: '10px',
+          }}
+        >
+          {/* Tab Switcher Header */}
+          <div style={{ display: 'flex', background: '#0E0E16', borderBottom: '1px solid #1E1E28', padding: '3px' }}>
+            <button
+              onClick={() => setRightPanelTab('inspector')}
+              style={{
+                flex: 1,
+                padding: '7px 10px',
+                fontSize: '0.74rem',
+                fontWeight: '700',
+                borderRadius: '6px',
+                border: 'none',
+                background: rightPanelTab === 'inspector' ? '#FFFFFF' : 'transparent',
+                color: rightPanelTab === 'inspector' ? '#000000' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '5px',
               }}
-              onSetTarget={(idx) => {
-                setSelectedTargetIdx(idx);
-                handleTriggerPredict(selectedSourceIdx, idx);
+            >
+              <Server size={13} /> Asset Posture
+            </button>
+
+            <button
+              onClick={() => setRightPanelTab('defense')}
+              style={{
+                flex: 1,
+                padding: '7px 10px',
+                fontSize: '0.74rem',
+                fontWeight: '700',
+                borderRadius: '6px',
+                border: 'none',
+                background: rightPanelTab === 'defense' ? '#FFFFFF' : 'transparent',
+                color: rightPanelTab === 'defense' ? '#000000' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '5px',
               }}
-            />
+            >
+              <ShieldCheck size={13} /> Defenses
+            </button>
           </div>
-          <div style={{ flex: '1 1 50%', minHeight: 0 }}>
-            <DefenseSimulatorPanel
-              defenseResult={defenseResult}
-              recommendations={recommendations}
-              onApplyRecommendation={(rec) => setDefenseResult(rec)}
-            />
+
+          {/* Full-Height Tab Content */}
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {rightPanelTab === 'inspector' ? (
+              <InspectorPanel
+                selectedNode={selectedNode}
+                onSimulatePatch={handleSimulatePatch}
+                onSetSource={(idx) => {
+                  setSelectedSourceIdx(idx);
+                  handleTriggerPredict(idx, selectedTargetIdx);
+                }}
+                onSetTarget={(idx) => {
+                  setSelectedTargetIdx(idx);
+                  handleTriggerPredict(selectedSourceIdx, idx);
+                }}
+              />
+            ) : (
+              <DefenseSimulatorPanel
+                defenseResult={defenseResult}
+                recommendations={recommendations}
+                onApplyRecommendation={(rec) => setDefenseResult(rec)}
+              />
+            )}
           </div>
         </div>
       </div>

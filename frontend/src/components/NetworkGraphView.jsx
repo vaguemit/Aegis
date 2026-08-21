@@ -4,16 +4,8 @@ import {
   Maximize2,
   ZoomIn,
   ZoomOut,
-  Layers,
-  RefreshCw,
   Target,
-  Shield,
   Activity,
-  Server,
-  Laptop,
-  User,
-  Info,
-  Compass,
   Grid,
   GitBranch,
 } from 'lucide-react';
@@ -31,7 +23,7 @@ export default function NetworkGraphView({
   const [hoveredNode, setHoveredNode] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
-  // 1. Initialize and update Cytoscape instance
+  // Initialize and update Cytoscape instance
   useEffect(() => {
     if (!containerRef.current || !graphData) return;
 
@@ -40,7 +32,7 @@ export default function NetworkGraphView({
       let nodeColor = '#334155';
       let borderColor = '#475569';
       let nodeShape = 'ellipse';
-      let tierLevel = 3; // default user / workstation
+      let tierLevel = 3;
       let nodeSize = 32;
 
       const isDC = n.entity_type === 'DomainController' || n.name.toLowerCase().includes('dc') || n.name.toLowerCase().includes('domain');
@@ -50,48 +42,47 @@ export default function NetworkGraphView({
 
       if (isDC) {
         nodeShape = 'hexagon';
-        nodeColor = '#7C3AED'; // Deep Violet
+        nodeColor = '#7C3AED';
         borderColor = '#A78BFA';
         tierLevel = 1;
-        nodeSize = 44;
+        nodeSize = 42;
       } else if (isServer) {
         nodeShape = 'round-rectangle';
-        nodeColor = '#0284C7'; // Blue
+        nodeColor = '#0284C7';
         borderColor = '#38BDF8';
         tierLevel = 2;
-        nodeSize = 38;
+        nodeSize = 36;
       } else if (isWorkstation) {
         nodeShape = 'rectangle';
-        nodeColor = '#2563EB'; // Royal Blue
+        nodeColor = '#2563EB';
         borderColor = '#60A5FA';
         tierLevel = 4;
-        nodeSize = 32;
+        nodeSize = 30;
       } else if (isUser) {
         nodeShape = 'ellipse';
-        nodeColor = '#059669'; // Emerald
+        nodeColor = '#059669';
         borderColor = '#34D399';
         tierLevel = 5;
-        nodeSize = 28;
+        nodeSize = 26;
       }
 
       if (n.is_owned) {
-        nodeColor = '#06B6D4'; // Cyan Initial Breach Foothold
+        nodeColor = '#06B6D4';
         borderColor = '#67E8F9';
-        nodeSize = Math.max(nodeSize, 38);
+        nodeSize = Math.max(nodeSize, 36);
       }
       if (n.is_vulnerable) {
-        borderColor = '#F59E0B'; // Amber CVE
+        borderColor = '#F59E0B';
       }
       if (n.is_target || n.is_high_value) {
-        nodeColor = '#E11D48'; // Rose Crown Jewel Target
+        nodeColor = '#E11D48';
         borderColor = '#FDA4AF';
-        nodeSize = Math.max(nodeSize, 44);
+        nodeSize = Math.max(nodeSize, 42);
       }
 
-      // Display Name Formatting
       let displayName = n.name;
-      if (displayName.length > 22) {
-        displayName = displayName.substring(0, 20) + '...';
+      if (displayName.length > 20) {
+        displayName = displayName.substring(0, 18) + '...';
       }
 
       return {
@@ -148,7 +139,6 @@ export default function NetworkGraphView({
       };
     });
 
-    // Cytoscape Core Configuration
     const cy = cytoscape({
       container: containerRef.current,
       elements: [...cyNodes, ...cyEdges],
@@ -165,10 +155,10 @@ export default function NetworkGraphView({
             'font-weight': '600',
             'font-family': 'Inter, sans-serif',
             'text-valign': 'bottom',
-            'text-margin-y': 5,
+            'text-margin-y': 4,
             'text-background-color': 'rgba(8, 8, 12, 0.85)',
             'text-background-opacity': 0.85,
-            'text-background-padding': 3,
+            'text-background-padding': 2,
             'text-background-shape': 'roundrectangle',
             'width': 'data(size)',
             'height': 'data(size)',
@@ -186,10 +176,10 @@ export default function NetworkGraphView({
             'line-color': 'data(color)',
             'target-arrow-color': 'data(color)',
             'target-arrow-shape': 'triangle',
-            'arrow-scale': 0.9,
+            'arrow-scale': 0.85,
             'curve-style': 'bezier',
             'line-style': 'data(lineStyle)',
-            'opacity': 0.45,
+            'opacity': 0.4,
             'transition-property': 'line-color, target-arrow-color, width, opacity',
             'transition-duration': '0.15s',
           },
@@ -197,12 +187,11 @@ export default function NetworkGraphView({
         {
           selector: 'node:selected',
           style: {
-            'border-width': 4,
+            'border-width': 3,
             'border-color': '#FFFFFF',
-            'border-opacity': 1,
-            'shadow-blur': 15,
+            'shadow-blur': 12,
             'shadow-color': '#FFFFFF',
-            'shadow-opacity': 0.5,
+            'shadow-opacity': 0.6,
           },
         },
         {
@@ -233,7 +222,7 @@ export default function NetworkGraphView({
           style: {
             'border-width': 4,
             'border-color': '#F43F5E',
-            'shadow-blur': 20,
+            'shadow-blur': 18,
             'shadow-color': '#F43F5E',
             'shadow-opacity': 0.8,
             'opacity': 1,
@@ -247,7 +236,7 @@ export default function NetworkGraphView({
             'target-arrow-color': '#F43F5E',
             'opacity': 1,
             'line-style': 'solid',
-            'arrow-scale': 1.3,
+            'arrow-scale': 1.2,
             'shadow-blur': 10,
             'shadow-color': '#F43F5E',
             'shadow-opacity': 0.7,
@@ -258,13 +247,11 @@ export default function NetworkGraphView({
 
     cyRef.current = cy;
 
-    // Node Interaction Events
     cy.on('tap', 'node', (evt) => {
       const node = evt.target;
       const rawNode = node.data('rawNode');
       if (onSelectNode) onSelectNode(rawNode);
 
-      // Focus Mode: Highlight neighborhood and fade rest
       cy.elements().removeClass('faded highlighted-neighbor highlighted-edge');
       const neighborhood = node.neighborhood().add(node);
       cy.elements().difference(neighborhood).addClass('faded');
@@ -272,14 +259,12 @@ export default function NetworkGraphView({
       node.neighborhood('edge').addClass('highlighted-edge');
     });
 
-    // Reset Focus on Canvas Click
     cy.on('tap', (evt) => {
       if (evt.target === cy) {
         cy.elements().removeClass('faded highlighted-neighbor highlighted-edge');
       }
     });
 
-    // Tooltip Hover Events
     cy.on('mouseover', 'node', (evt) => {
       const node = evt.target;
       const rawNode = node.data('rawNode');
@@ -299,50 +284,45 @@ export default function NetworkGraphView({
     };
   }, [graphData]);
 
-  // Apply layout algorithm
   const applyLayout = (cyInstance, type) => {
     if (!cyInstance) return;
 
     let layoutConfig = {};
 
     if (type === 'tiered') {
-      // Clean Hierarchical Tiered Dagre/Breadthfirst layout
       layoutConfig = {
         name: 'breadthfirst',
         directed: true,
-        padding: 40,
-        spacingFactor: 1.25,
+        padding: 30,
+        spacingFactor: 1.2,
         avoidOverlap: true,
         circle: false,
-        roots: cyInstance.nodes('[tierLevel = 1]'), // DC roots at top
+        roots: cyInstance.nodes('[tierLevel = 1]'),
       };
     } else if (type === 'concentric') {
-      // Concentric Security Rings (Crown Jewels in center)
       layoutConfig = {
         name: 'concentric',
         concentric: (node) => 6 - node.data('tierLevel'),
         levelWidth: () => 1,
-        padding: 35,
+        padding: 30,
         avoidOverlap: true,
         spacingFactor: 1.15,
       };
     } else if (type === 'grid') {
-      // Subnet Grid Matrix
       layoutConfig = {
         name: 'grid',
-        padding: 40,
+        padding: 30,
         avoidOverlap: true,
         rows: Math.ceil(Math.sqrt(cyInstance.nodes().length)),
       };
     } else {
-      // Organic Spring Cose layout
       layoutConfig = {
         name: 'cose',
         idealEdgeLength: 60,
         nodeOverlap: 20,
         refresh: 20,
         fit: true,
-        padding: 35,
+        padding: 30,
         randomize: false,
         componentSpacing: 100,
         nodeRepulsion: 400000,
@@ -365,7 +345,6 @@ export default function NetworkGraphView({
     applyLayout(cyRef.current, type);
   };
 
-  // Highlight Attack Paths
   useEffect(() => {
     if (!cyRef.current) return;
     const cy = cyRef.current;
@@ -387,185 +366,181 @@ export default function NetworkGraphView({
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
-      {/* Cytoscape Graph Canvas */}
       <div ref={containerRef} id="cy-container" />
 
-      {/* Floating Canvas Control Toolbar */}
+      {/* Sleek Top-Right Canvas Toolbar */}
       <div
-        className="glass-panel"
         style={{
           position: 'absolute',
-          top: '12px',
-          left: '12px',
-          padding: '6px',
+          top: '10px',
+          right: '10px',
+          padding: '4px',
           display: 'flex',
           alignItems: 'center',
-          gap: '6px',
-          background: 'rgba(9, 9, 13, 0.92)',
+          gap: '4px',
+          background: '#0D0D14',
           border: '1px solid #22222E',
           borderRadius: '8px',
           zIndex: 10,
+          boxShadow: '0 4px 15px rgba(0,0,0,0.6)',
         }}
       >
         <button
           className="btn-cyber"
           onClick={() => handleSwitchLayout('tiered')}
           style={{
-            padding: '5px 10px',
-            fontSize: '0.74rem',
-            background: layoutName === 'tiered' ? '#FFFFFF' : '#14141C',
+            padding: '4px 8px',
+            fontSize: '0.72rem',
+            background: layoutName === 'tiered' ? '#FFFFFF' : '#14141E',
             color: layoutName === 'tiered' ? '#000000' : 'var(--text-secondary)',
           }}
-          title="Hierarchical Tiered Architecture (DCs → Servers → Endpoints)"
+          title="Hierarchical Tiered View (DCs → Servers → Workstations)"
         >
-          <GitBranch size={13} /> Tiered View
+          <GitBranch size={12} /> Tiered
         </button>
 
         <button
           className="btn-cyber"
           onClick={() => handleSwitchLayout('concentric')}
           style={{
-            padding: '5px 10px',
-            fontSize: '0.74rem',
-            background: layoutName === 'concentric' ? '#FFFFFF' : '#14141C',
+            padding: '4px 8px',
+            fontSize: '0.72rem',
+            background: layoutName === 'concentric' ? '#FFFFFF' : '#14141E',
             color: layoutName === 'concentric' ? '#000000' : 'var(--text-secondary)',
           }}
-          title="Concentric Security Rings (Crown Jewels in Center)"
+          title="Concentric Security Rings"
         >
-          <Target size={13} /> Security Rings
+          <Target size={12} /> Rings
         </button>
 
         <button
           className="btn-cyber"
           onClick={() => handleSwitchLayout('grid')}
           style={{
-            padding: '5px 10px',
-            fontSize: '0.74rem',
-            background: layoutName === 'grid' ? '#FFFFFF' : '#14141C',
+            padding: '4px 8px',
+            fontSize: '0.72rem',
+            background: layoutName === 'grid' ? '#FFFFFF' : '#14141E',
             color: layoutName === 'grid' ? '#000000' : 'var(--text-secondary)',
           }}
-          title="Subnet Matrix Grid"
+          title="Subnet Grid View"
         >
-          <Grid size={13} /> Grid View
+          <Grid size={12} /> Grid
         </button>
 
         <button
           className="btn-cyber"
           onClick={() => handleSwitchLayout('cose')}
           style={{
-            padding: '5px 10px',
-            fontSize: '0.74rem',
-            background: layoutName === 'cose' ? '#FFFFFF' : '#14141C',
+            padding: '4px 8px',
+            fontSize: '0.72rem',
+            background: layoutName === 'cose' ? '#FFFFFF' : '#14141E',
             color: layoutName === 'cose' ? '#000000' : 'var(--text-secondary)',
           }}
           title="Organic Force-Directed Spring Layout"
         >
-          <Activity size={13} /> Organic View
+          <Activity size={12} /> Organic
         </button>
 
-        <div style={{ width: '1px', height: '18px', background: '#2B2B38', margin: '0 4px' }} />
+        <div style={{ width: '1px', height: '14px', background: '#2B2B38', margin: '0 2px' }} />
 
         <button
           className="btn-cyber btn-outline"
-          onClick={() => cyRef.current && cyRef.current.fit(null, 40)}
-          style={{ padding: '5px 8px' }}
-          title="Fit Graph to Screen"
+          onClick={() => cyRef.current && cyRef.current.fit(null, 30)}
+          style={{ padding: '4px 6px' }}
+          title="Fit Canvas"
         >
-          <Maximize2 size={13} />
+          <Maximize2 size={12} />
         </button>
 
         <button
           className="btn-cyber btn-outline"
           onClick={() => cyRef.current && cyRef.current.zoom(cyRef.current.zoom() * 1.25)}
-          style={{ padding: '5px 8px' }}
+          style={{ padding: '4px 6px' }}
           title="Zoom In"
         >
-          <ZoomIn size={13} />
+          <ZoomIn size={12} />
         </button>
 
         <button
           className="btn-cyber btn-outline"
           onClick={() => cyRef.current && cyRef.current.zoom(cyRef.current.zoom() * 0.8)}
-          style={{ padding: '5px 8px' }}
+          style={{ padding: '4px 6px' }}
           title="Zoom Out"
         >
-          <ZoomOut size={13} />
+          <ZoomOut size={12} />
         </button>
       </div>
 
-      {/* Floating Topology Legend Banner */}
+      {/* Floating Compact Legend */}
       <div
-        className="glass-panel"
         style={{
           position: 'absolute',
-          bottom: '12px',
-          left: '12px',
-          padding: '8px 12px',
+          bottom: '10px',
+          left: '10px',
+          padding: '6px 10px',
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
-          background: 'rgba(9, 9, 13, 0.92)',
-          border: '1px solid #22222E',
-          borderRadius: '8px',
-          fontSize: '0.72rem',
+          gap: '10px',
+          background: 'rgba(11, 11, 16, 0.92)',
+          border: '1px solid #1E1E28',
+          borderRadius: '6px',
+          fontSize: '0.7rem',
           zIndex: 10,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <div style={{ width: '10px', height: '10px', background: '#06B6D4', borderRadius: '2px' }} />
-          <span>Attacker Foothold</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ width: '8px', height: '8px', background: '#06B6D4', borderRadius: '2px' }} />
+          <span>Foothold</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <div style={{ width: '10px', height: '10px', background: '#E11D48', borderRadius: '2px' }} />
-          <span>Crown Jewel Target</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ width: '8px', height: '8px', background: '#E11D48', borderRadius: '2px' }} />
+          <span>Target</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <div style={{ width: '10px', height: '10px', background: '#7C3AED', borderRadius: '2px' }} />
-          <span>Domain Controller</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ width: '8px', height: '8px', background: '#7C3AED', borderRadius: '2px' }} />
+          <span>DC</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <div style={{ width: '10px', height: '10px', background: '#0284C7', borderRadius: '2px' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ width: '8px', height: '8px', background: '#0284C7', borderRadius: '2px' }} />
           <span>Server</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <div style={{ width: '10px', height: '10px', background: '#2563EB', borderRadius: '2px' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ width: '8px', height: '8px', background: '#2563EB', borderRadius: '2px' }} />
           <span>Workstation</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <div style={{ width: '10px', height: '10px', border: '2px solid #F59E0B', borderRadius: '2px' }} />
-          <span>CVE Vulnerable</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ width: '8px', height: '8px', border: '1.5px solid #F59E0B', borderRadius: '2px' }} />
+          <span>CVE</span>
         </div>
       </div>
 
-      {/* Interactive Floating Node Hover Tooltip */}
+      {/* Floating Hover Tooltip */}
       {hoveredNode && (
         <div
           style={{
             position: 'absolute',
-            left: `${Math.min(window.innerWidth - 320, tooltipPos.x + 20)}px`,
-            top: `${Math.min(window.innerHeight - 180, tooltipPos.y + 20)}px`,
-            padding: '10px 14px',
+            left: `${Math.min(window.innerWidth - 300, tooltipPos.x + 15)}px`,
+            top: `${Math.min(window.innerHeight - 150, tooltipPos.y + 15)}px`,
+            padding: '8px 12px',
             background: '#0B0B10',
             border: '1px solid #333345',
             borderRadius: '8px',
-            boxShadow: '0 15px 35px rgba(0,0,0,0.9)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.9)',
             zIndex: 100,
             pointerEvents: 'none',
-            minWidth: '220px',
+            minWidth: '200px',
           }}
         >
-          <div style={{ fontSize: '0.82rem', fontWeight: '700', color: '#FFFFFF', marginBottom: '2px' }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: '700', color: '#FFFFFF', marginBottom: '2px' }}>
             {hoveredNode.name}
           </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-            Type: {hoveredNode.entity_type} {hoveredNode.os ? `• ${hoveredNode.os}` : ''}
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
+            {hoveredNode.entity_type} {hoveredNode.os ? `• ${hoveredNode.os}` : ''}
           </div>
-
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-            {hoveredNode.is_owned && <span className="badge badge-cyan" style={{ fontSize: '0.62rem' }}>Initial Breach Foothold</span>}
-            {hoveredNode.is_target && <span className="badge badge-rose" style={{ fontSize: '0.62rem' }}>Crown Jewel Target</span>}
-            {hoveredNode.is_vulnerable && <span className="badge badge-amber" style={{ fontSize: '0.62rem' }}>Unpatched CVE Exploit</span>}
-            {hoveredNode.has_spn && <span className="badge badge-purple" style={{ fontSize: '0.62rem' }}>Kerberoastable SPN</span>}
+            {hoveredNode.is_owned && <span className="badge badge-cyan" style={{ fontSize: '0.6rem' }}>Attacker Foothold</span>}
+            {hoveredNode.is_target && <span className="badge badge-rose" style={{ fontSize: '0.6rem' }}>Target Crown Jewel</span>}
+            {hoveredNode.is_vulnerable && <span className="badge badge-amber" style={{ fontSize: '0.6rem' }}>Unpatched CVE</span>}
           </div>
         </div>
       )}

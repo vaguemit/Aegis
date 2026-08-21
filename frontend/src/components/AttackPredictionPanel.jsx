@@ -1,5 +1,16 @@
-import React from 'react';
-import { Route, Target, Flame, ArrowRight, ShieldCheck, AlertOctagon, Eye, Crosshair } from 'lucide-react';
+import React, { useState } from 'react';
+import {
+  Route,
+  Target,
+  Flame,
+  ArrowRight,
+  ShieldCheck,
+  AlertOctagon,
+  Eye,
+  Crosshair,
+  Layers,
+  PlayCircle,
+} from 'lucide-react';
 import LiveAttackTimeline from './LiveAttackTimeline';
 
 export default function AttackPredictionPanel({
@@ -20,45 +31,58 @@ export default function AttackPredictionPanel({
   onTogglePlay,
   onReset,
 }) {
+  const [panelTab, setPanelTab] = useState('vectors'); // 'vectors' | 'timeline'
   const nodes = graphData?.nodes || [];
 
   return (
-    <div className="glass-panel" style={{ padding: '16px', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', background: '#09090D', border: '1px solid #1E1E28' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #1F1F2A', paddingBottom: '8px' }}>
+    <div
+      style={{
+        padding: '14px',
+        height: '100%',
+        overflowY: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px',
+        background: '#0B0B10',
+        border: '1px solid #1E1E28',
+        borderRadius: '10px',
+      }}
+    >
+      {/* Panel Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #1A1A24', paddingBottom: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Flame size={16} color="#F43F5E" />
-          <h3 style={{ fontSize: '0.92rem', fontWeight: '700', color: '#FFFFFF' }}>Attack Path Prediction</h3>
+          <Flame size={15} color="#F43F5E" />
+          <h3 style={{ fontSize: '0.88rem', fontWeight: '700', color: '#FFFFFF', margin: 0 }}>Attack Vectors</h3>
         </div>
 
         {predictionResult && (
           <button
             className="btn-cyber btn-outline"
             onClick={onOpenExplainability}
-            style={{ fontSize: '0.72rem', padding: '3px 8px' }}
+            style={{ fontSize: '0.7rem', padding: '3px 7px' }}
           >
-            <Eye size={12} /> XAI Attribution
+            <Eye size={11} /> XAI
           </button>
         )}
       </div>
 
-      {/* Origin & Destination Route Selector */}
-      <div style={{ padding: '10px 12px', background: '#12121A', borderRadius: '8px', border: '1px solid #1E1E28', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {/* Start and Target Pickers */}
+      <div style={{ padding: '8px 10px', background: '#12121A', borderRadius: '8px', border: '1px solid #1E1E28', display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <div>
-          <label style={{ fontSize: '0.72rem', color: '#38BDF8', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '3px' }}>
-            <Crosshair size={12} color="#38BDF8" /> Attacker Starting Foothold:
+          <label style={{ fontSize: '0.7rem', color: '#38BDF8', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+            <Crosshair size={11} /> Start Foothold:
           </label>
           <select
             value={selectedSourceIdx}
             onChange={(e) => onSelectSourceIdx(Number(e.target.value))}
             style={{
               width: '100%',
-              padding: '6px 8px',
+              padding: '4px 6px',
               background: '#09090D',
               color: '#FFFFFF',
               border: '1px solid #282836',
-              borderRadius: '6px',
-              fontSize: '0.76rem',
+              borderRadius: '5px',
+              fontSize: '0.74rem',
               outline: 'none',
             }}
           >
@@ -71,20 +95,20 @@ export default function AttackPredictionPanel({
         </div>
 
         <div>
-          <label style={{ fontSize: '0.72rem', color: '#F43F5E', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '3px' }}>
-            <Target size={12} color="#F43F5E" /> Crown Jewel Target:
+          <label style={{ fontSize: '0.7rem', color: '#F43F5E', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+            <Target size={11} /> Crown Jewel Target:
           </label>
           <select
             value={selectedTargetIdx}
             onChange={(e) => onSelectTargetIdx(Number(e.target.value))}
             style={{
               width: '100%',
-              padding: '6px 8px',
+              padding: '4px 6px',
               background: '#09090D',
               color: '#FFFFFF',
               border: '1px solid #282836',
-              borderRadius: '6px',
-              fontSize: '0.76rem',
+              borderRadius: '5px',
+              fontSize: '0.74rem',
               outline: 'none',
             }}
           >
@@ -97,135 +121,154 @@ export default function AttackPredictionPanel({
         </div>
       </div>
 
-      {/* If No Prediction Generated Yet */}
       {(!predictionResult || !predictionResult.paths || predictionResult.paths.length === 0) ? (
-        <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <Route size={32} color="var(--text-muted)" style={{ margin: '0 auto 8px auto' }} />
-          <p style={{ fontSize: '0.76rem' }}>
-            Select your starting foothold and target destination above, then click <strong>"Predict Paths"</strong> in the top navigation bar.
+        <div style={{ padding: '30px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <Route size={28} color="var(--text-muted)" style={{ margin: '0 auto 8px auto' }} />
+          <p style={{ fontSize: '0.74rem', margin: 0 }}>
+            Click <strong>"Predict Paths"</strong> in the top navbar to forecast multi-hop lateral movement routes.
           </p>
         </div>
       ) : (
         <>
-          {/* Critical Bottleneck Pivot Alert */}
-          {predictionResult.bottleneck_node_name && (
-            <div style={{ padding: '8px 10px', background: '#171012', borderRadius: '6px', border: '1px solid #33151B', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertOctagon size={18} color="#EF4444" style={{ flexShrink: 0 }} />
-              <div>
-                <div style={{ fontSize: '0.76rem', fontWeight: '700', color: '#FCA5A5' }}>
-                  Chokepoint Pivot: {predictionResult.bottleneck_node_name}
-                </div>
-                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                  Critical asset where adversary flows converge. Interdicting this node stops lateral movement.
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Path Rank Switcher Tabs */}
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {predictionResult.paths.map((p, idx) => (
-              <button
-                key={p.rank}
-                onClick={() => onSelectPathIndex(idx)}
-                className="btn-cyber"
-                style={{
-                  flex: 1,
-                  padding: '5px 8px',
-                  fontSize: '0.72rem',
-                  background: activePathIndex === idx ? '#FFFFFF' : '#14141C',
-                  border: activePathIndex === idx ? '1px solid #FFFFFF' : '1px solid #22222E',
-                  color: activePathIndex === idx ? '#000000' : 'var(--text-secondary)',
-                }}
-              >
-                Vector #{p.rank} ({(p.confidence_score * 100).toFixed(0)}%)
-              </button>
-            ))}
+          {/* Segmented View Switcher: Vectors vs Timeline */}
+          <div style={{ display: 'flex', background: '#12121A', padding: '2px', borderRadius: '6px', border: '1px solid #1E1E28' }}>
+            <button
+              onClick={() => setPanelTab('vectors')}
+              style={{
+                flex: 1,
+                padding: '4px 8px',
+                fontSize: '0.72rem',
+                fontWeight: '600',
+                borderRadius: '4px',
+                border: 'none',
+                background: panelTab === 'vectors' ? '#FFFFFF' : 'transparent',
+                color: panelTab === 'vectors' ? '#000000' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+              }}
+            >
+              <Layers size={11} /> Attack Vectors
+            </button>
+            <button
+              onClick={() => setPanelTab('timeline')}
+              style={{
+                flex: 1,
+                padding: '4px 8px',
+                fontSize: '0.72rem',
+                fontWeight: '600',
+                borderRadius: '4px',
+                border: 'none',
+                background: panelTab === 'timeline' ? '#FFFFFF' : 'transparent',
+                color: panelTab === 'timeline' ? '#000000' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+              }}
+            >
+              <PlayCircle size={11} /> Live Player
+            </button>
           </div>
 
-          {/* Selected Path Statistics */}
-          {predictionResult.paths[activePathIndex] && (
-            <div style={{ padding: '8px 10px', background: '#12121A', borderRadius: '6px', border: '1px solid #1E1E2A', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', textAlign: 'center' }}>
-              <div>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Confidence</span>
-                <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#F43F5E' }}>
-                  {(predictionResult.paths[activePathIndex].confidence_score * 100).toFixed(1)}%
-                </div>
-              </div>
-              <div>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Hops</span>
-                <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#38BDF8' }}>
-                  {predictionResult.paths[activePathIndex].hop_count} Hops
-                </div>
-              </div>
-              <div>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Nodes</span>
-                <div style={{ fontSize: '0.9rem', fontWeight: '800', color: '#10B981' }}>
-                  {predictionResult.paths[activePathIndex].nodes.length} Assets
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Live Attack Step Timeline Player */}
-          <div>
-            <h4 style={{ fontSize: '0.74rem', textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: '6px' }}>
-              Live Step-by-Step Playback
-            </h4>
-            <LiveAttackTimeline
-              timelineEvents={timelineEvents}
-              currentStepIndex={currentStepIndex}
-              onStepChange={onStepChange}
-              isPlaying={isPlaying}
-              onTogglePlay={onTogglePlay}
-              onReset={onReset}
-            />
-          </div>
-
-          {/* Step-by-Step Lateral Movement Progression */}
-          {predictionResult.paths[activePathIndex] && (
-            <div>
-              <h4 style={{ fontSize: '0.74rem', textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: '6px' }}>
-                Lateral Movement Sequence
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                {predictionResult.paths[activePathIndex].hops.map((hop, idx) => (
-                  <div
-                    key={idx}
+          {panelTab === 'vectors' && (
+            <>
+              {/* Path Rank Switcher */}
+              <div style={{ display: 'flex', gap: '4px' }}>
+                {predictionResult.paths.map((p, idx) => (
+                  <button
+                    key={p.rank}
+                    onClick={() => onSelectPathIndex(idx)}
+                    className="btn-cyber"
                     style={{
-                      padding: '7px 9px',
-                      background: '#12121A',
-                      borderRadius: '5px',
-                      border: '1px solid #1E1E28',
-                      fontSize: '0.74rem',
+                      flex: 1,
+                      padding: '4px 6px',
+                      fontSize: '0.7rem',
+                      background: activePathIndex === idx ? '#FFFFFF' : '#14141C',
+                      border: activePathIndex === idx ? '1px solid #FFFFFF' : '1px solid #22222E',
+                      color: activePathIndex === idx ? '#000000' : 'var(--text-secondary)',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '3px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: '600' }}>
-                        <span style={{ color: '#38BDF8' }}>{hop.source_name}</span>
-                        <ArrowRight size={10} color="var(--text-muted)" />
-                        <span style={{ color: '#F43F5E' }}>{hop.target_name}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    Vector #{p.rank} ({(p.confidence_score * 100).toFixed(0)}%)
+                  </button>
+                ))}
+              </div>
+
+              {/* Path Metrics Bar */}
+              {predictionResult.paths[activePathIndex] && (
+                <div style={{ padding: '6px 8px', background: '#12121A', borderRadius: '6px', border: '1px solid #1E1E2A', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px', textAlign: 'center' }}>
+                  <div>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Confidence</span>
+                    <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#F43F5E' }}>
+                      {(predictionResult.paths[activePathIndex].confidence_score * 100).toFixed(0)}%
+                    </div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Hops</span>
+                    <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#38BDF8' }}>
+                      {predictionResult.paths[activePathIndex].hop_count} Hops
+                    </div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Assets</span>
+                    <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#10B981' }}>
+                      {predictionResult.paths[activePathIndex].nodes.length}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Hop List */}
+              {predictionResult.paths[activePathIndex] && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  {predictionResult.paths[activePathIndex].hops.map((hop, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: '6px 8px',
+                        background: '#12121A',
+                        borderRadius: '6px',
+                        border: '1px solid #1E1E28',
+                        fontSize: '0.72rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
+                          <span style={{ color: '#38BDF8' }}>{hop.source_name}</span>
+                          <ArrowRight size={10} color="var(--text-muted)" />
+                          <span style={{ color: '#F43F5E' }}>{hop.target_name}</span>
+                        </div>
                         <button
                           className="btn-cyber btn-outline"
-                          style={{ padding: '2px 5px', fontSize: '0.65rem' }}
+                          style={{ padding: '1px 4px', fontSize: '0.62rem' }}
                           onClick={() => onOpenAdvancedXAI(hop.source_idx, hop.target_idx)}
-                          title="Decompose Multi-Head Attention"
                         >
                           XAI
                         </button>
-                        <span className="badge badge-rose" style={{ fontSize: '0.65rem' }}>
-                          {(hop.probability * 100).toFixed(0)}%
-                        </span>
+                      </div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
+                        Protocol: <code style={{ color: '#FBBF24' }}>{hop.edge_type}</code>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: '0.68rem' }}>
-                      <span>Protocol: <code style={{ color: '#FBBF24' }}>{hop.edge_type}</code></span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {panelTab === 'timeline' && (
+            <div style={{ flex: 1 }}>
+              <LiveAttackTimeline
+                timelineEvents={timelineEvents}
+                currentStepIndex={currentStepIndex}
+                onStepChange={onStepChange}
+                isPlaying={isPlaying}
+                onTogglePlay={onTogglePlay}
+                onReset={onReset}
+              />
             </div>
           )}
         </>
