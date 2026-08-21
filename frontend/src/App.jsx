@@ -9,6 +9,7 @@ import ScenarioModal from './components/ScenarioModal';
 import ExperimentsModal from './components/ExperimentsModal';
 import VMInfrastructureModal from './components/VMInfrastructureModal';
 import MultiHeadXAIModal from './components/MultiHeadXAIModal';
+import GuidedDemoBanner, { DEMO_STORIES } from './components/GuidedDemoBanner';
 
 export default function App() {
   const [graphs, setGraphs] = useState([]);
@@ -16,6 +17,10 @@ export default function App() {
   const [graphData, setGraphData] = useState(null);
   const [selectedNode, setSelectedNode] = useState(null);
   const [selectedModel, setSelectedModel] = useState('gat');
+
+  // Guided Presentation Mode
+  const [isGuidedDemoOpen, setIsGuidedDemoOpen] = useState(true);
+  const [currentStoryId, setCurrentStoryId] = useState('phished_hr_laptop');
 
   const [isPredicting, setIsPredicting] = useState(false);
   const [predictionResult, setPredictionResult] = useState(null);
@@ -254,6 +259,33 @@ export default function App() {
     }
   };
 
+  // Guided Demo Storyline Handlers
+  const handleSelectStory = (storyId) => {
+    setCurrentStoryId(storyId);
+    if (!graphData || !graphData.nodes) return;
+    const story = DEMO_STORIES.find((s) => s.id === storyId);
+    if (!story) return;
+
+    // Find best matching start and target nodes
+    const startNode = graphData.nodes.find((n) => n.name.toLowerCase().includes(story.startNodeName.toLowerCase().split('-')[0])) || graphData.nodes[0];
+    const targetNode = graphData.nodes.find((n) => n.name.toLowerCase().includes(story.targetNodeName.toLowerCase().split('-')[0])) || graphData.nodes[graphData.nodes.length - 1];
+
+    if (startNode) setSelectedSourceIdx(startNode.index);
+    if (targetNode) setSelectedTargetIdx(targetNode.index);
+  };
+
+  const handleRunStoryPrediction = () => {
+    handleTriggerPredict(selectedSourceIdx, selectedTargetIdx);
+    setIsPlaying(true);
+  };
+
+  const handleApplyStoryFix = () => {
+    if (graphData && graphData.nodes) {
+      const vulnNode = graphData.nodes.find((n) => n.is_vulnerable) || graphData.nodes[1];
+      if (vulnNode) handleSimulatePatch(vulnNode.index);
+    }
+  };
+
   // Active path to highlight on Cytoscape canvas
   const activePath = predictionResult && predictionResult.paths ? predictionResult.paths[activePathIndex] : null;
 
@@ -272,7 +304,19 @@ export default function App() {
         isPredicting={isPredicting}
         onTriggerPredict={() => handleTriggerPredict()}
         backendOnline={backendOnline}
+        isGuidedDemoOpen={isGuidedDemoOpen}
+        onToggleGuidedDemo={() => setIsGuidedDemoOpen(!isGuidedDemoOpen)}
       />
+
+      {/* Guided Story Presentation Banner */}
+      {isGuidedDemoOpen && (
+        <GuidedDemoBanner
+          currentStoryId={currentStoryId}
+          onSelectStory={handleSelectStory}
+          onRunStoryPrediction={handleRunStoryPrediction}
+          onApplyStoryFix={handleApplyStoryFix}
+        />
+      )}
 
       {/* Main Command Center Layout */}
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '330px 1fr 340px', gap: '12px', margin: '0 14px 12px 14px', overflow: 'hidden' }}>
