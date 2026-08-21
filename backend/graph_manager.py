@@ -1,7 +1,7 @@
 """
 Graph State Store and Model Cache for FastAPI Backend.
 Maintains in-memory graph repository, pre-trained GAT model instances,
-and fast Cytoscape conversion helpers.
+and fast Cytoscape conversion helpers with human-readable department names.
 """
 
 from typing import Dict, List, Optional, Tuple, Any
@@ -32,6 +32,61 @@ from backend.models import (
 )
 
 
+def format_human_friendly_node_name(
+    raw_name: Optional[str],
+    idx: int,
+    entity_name: str,
+    is_target: bool,
+    is_hv: bool,
+    is_vuln: bool,
+    is_owned: bool,
+) -> str:
+    """Ensures every asset has a clear, human-readable department-based name."""
+    if raw_name and ("HR-" in raw_name or "Finance-" in raw_name or "Engineering-" in raw_name or "Primary-" in raw_name or "Corporate-" in raw_name):
+        return raw_name
+
+    depts = ["HR", "Finance", "Engineering", "Sales", "Executive"]
+    dept = depts[idx % len(depts)]
+
+    first_names = ["Alice", "Bob", "Charlie", "David", "Emma", "Frank", "Grace", "Henry"]
+    last_names = ["Smith", "Jones", "Miller", "Clark", "Davis", "Wilson", "Taylor", "Brown"]
+    fn = first_names[idx % len(first_names)]
+    ln = last_names[(idx // len(first_names)) % len(last_names)]
+
+    if entity_name in ["DomainController", "Domain"] or (is_target and is_hv):
+        if idx == 0 or is_target:
+            return "Primary-Domain-Controller"
+        return f"Backup-DC-Enterprise-{idx:02d}"
+
+    if entity_name == "Computer":
+        if is_target:
+            return "Customer-SQL-Database"
+        if is_hv:
+            servers = ["Corporate-Web-Portal", "Customer-SQL-Database", "Payroll-DB-Server", "Internal-File-Share", "Payment-Gateway-Host"]
+            return servers[idx % len(servers)]
+        if is_owned:
+            return f"HR-Workstation-01"
+        return f"{dept}-Workstation-{idx+1:02d}"
+
+    if entity_name == "User":
+        if is_hv:
+            return f"Admin.{fn}.{ln} (Enterprise Admin)"
+        return f"{fn}.{ln} ({dept})"
+
+    if entity_name == "Group":
+        if is_hv or is_target:
+            return "Domain-Administrators"
+        return f"{dept}-Operators-Group"
+
+    if entity_name == "OU":
+        return f"OU-{dept}-Subnet"
+
+    if entity_name == "GPO":
+        return f"Policy-GPO-{dept}"
+
+    return f"{dept}-Asset-{idx+1:02d}"
+
+
 class BackendGraphManager:
     """Singleton-style manager holding active graphs and cached neural models."""
 
@@ -43,17 +98,17 @@ class BackendGraphManager:
 
     def _init_models(self):
         """Initializes GNN model instances and loads trained weights if present."""
-        self.models["gat"] = GATModel(in_features=20, hidden_dim=64, out_dim=64, num_heads=4, num_layers=2)
-        self.models["gcn"] = GCNModel(in_features=20, hidden_dim=64, out_dim=64, num_layers=2)
-        self.models["graphsage"] = GraphSAGEModel(in_features=20, hidden_dim=64, out_dim=64, num_layers=2)
+        self.models["gat"] = GATModel(in_features=20, hidden_dim=128, out_dim=128, num_heads=4, num_layers=3)
+        self.models["gcn"] = GCNModel(in_features=20, hidden_dim=128, out_dim=128, num_layers=3)
+        self.models["graphsage"] = GraphSAGEModel(in_features=20, hidden_dim=128, out_dim=128, num_layers=3)
         self.models["dijkstra"] = DijkstraShortestPathBaseline()
         self.models["cvss"] = CVSSWeightedShortestPathBaseline()
 
         checkpoint_path = Path("checkpoints/best_gat_weights.pt")
         if checkpoint_path.exists():
             try:
-                state_dict = torch.load(checkpoint_path, map_location="cpu")
-                self.models["gat"].load_state_dict(state_dict)
+                state_dict = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
+                self.models["gat"].load_state_dict(state_dict, strict=False)
                 print(f"[+] Successfully loaded trained GAT weights from {checkpoint_path}")
             except Exception as e:
                 print(f"[!] Initializing GAT default weights ({e})")
@@ -63,33 +118,39 @@ class BackendGraphManager:
                 m.eval()
 
     def _init_default_graphs(self):
-        """Loads a few benchmark graphs and synthesizes initial demo enterprise environments."""
-        # 1. Check for extracted PIGNN benchmark graphs
+        """Loads curated enterprise demo environments first, followed by research benchmark graphs."""
+        # 1. Synthesize curated realistic department enterprise topologies FIRST
+        gen_corp = SyntheticEnterpriseGenerator(
+            num_computers=24, num_servers=6, num_users=30, num_ous=4, seed=42
+        )
+        g_corp = gen_corp.generate(scenario_name="demo_corporate_enterprise_60n")
+        self.graphs[g_corp.graph_id] = g_corp
+
+        gen_small = SyntheticEnterpriseGenerator(
+            num_computers=15, num_servers=4, num_users=20, num_ous=3, seed=101
+        )
+        g_small = gen_small.generate(scenario_name="demo_enterprise_small_39n")
+        self.graphs[g_small.graph_id] = g_small
+
+        gen_med = SyntheticEnterpriseGenerator(
+            num_computers=50, num_servers=10, num_users=80, num_ous=5, seed=202
+        )
+        g_med = gen_med.generate(scenario_name="demo_enterprise_medium_140n")
+        self.graphs[g_med.graph_id] = g_med
+
+        # 2. Check for extracted PIGNN benchmark graphs
         pignn_dir = Path("data/_data_")
         if not pignn_dir.exists():
             pignn_dir = Path("replication_pkg/Physics-Informed-GNN (PIGNN)/_Preprocessing_/_data_")
 
         if pignn_dir.exists():
-            pt_files = sorted(list(pignn_dir.glob("*.pt")))[:5]
+            pt_files = sorted(list(pignn_dir.glob("*.pt")))[:10]
             for p in pt_files:
                 try:
                     g = load_pignn_graph(p, target_dim=20)
                     self.graphs[g.graph_id] = g
                 except Exception as e:
                     print(f"[!] Warning loading {p}: {e}")
-
-        # 2. Synthesize baseline demo enterprise topologies (Small, Medium, Large)
-        gen_small = SyntheticEnterpriseGenerator(
-            num_computers=20, num_servers=4, num_users=30, num_ous=3, seed=101
-        )
-        g_small = gen_small.generate(scenario_name="demo_enterprise_small_53n")
-        self.graphs[g_small.graph_id] = g_small
-
-        gen_med = SyntheticEnterpriseGenerator(
-            num_computers=50, num_servers=10, num_users=80, num_ous=5, seed=202
-        )
-        g_med = gen_med.generate(scenario_name="demo_enterprise_medium_147n")
-        self.graphs[g_med.graph_id] = g_med
 
     def list_graph_summaries(self) -> List[GraphSummary]:
         """Returns metadata summary for all available graphs."""
@@ -98,24 +159,17 @@ class BackendGraphManager:
             vuln_col = PROPERTY_TO_IDX[SecurityProperty.IS_VULNERABLE]
             hv_col = PROPERTY_TO_IDX[SecurityProperty.HIGH_VALUE]
 
-            num_vuln = int((g.x_matrix[:, vuln_col] > 0.5).sum().item())
-            num_hv = int((g.x_matrix[:, hv_col] > 0.5).sum().item())
-            num_edges = int((g.adj_tensor.sum(dim=-1) > 0.5).sum().item())
-
-            src_name = g.node_names[g.source_idx] if (g.node_names and g.source_idx is not None) else (f"Node_{g.source_idx}" if g.source_idx is not None else None)
-            dst_name = g.node_names[g.target_idx] if (g.node_names and g.target_idx is not None) else (f"Node_{g.target_idx}" if g.target_idx is not None else None)
+            vuln_count = int((g.x_matrix[:, vuln_col] > 0.5).sum().item())
+            hv_count = int((g.x_matrix[:, hv_col] > 0.5).sum().item())
+            edge_count = int((g.adj_tensor > 0.5).sum().item())
 
             summaries.append(
                 GraphSummary(
                     graph_id=g_id,
                     num_nodes=g.num_nodes,
-                    num_edges=num_edges,
-                    num_vulnerable_nodes=num_vuln,
-                    num_high_value_nodes=num_hv,
-                    source_idx=g.source_idx,
-                    target_idx=g.target_idx,
-                    source_name=src_name,
-                    target_name=dst_name,
+                    num_edges=edge_count,
+                    num_vulnerable_nodes=vuln_count,
+                    num_high_value_nodes=hv_count,
                 )
             )
         return summaries
@@ -123,8 +177,13 @@ class BackendGraphManager:
     def get_graph(self, graph_id: str) -> Optional[NetworkGraphData]:
         return self.graphs.get(graph_id)
 
+    def add_synthetic_graph(self, graph_data: NetworkGraphData) -> str:
+        """Stores a newly generated synthetic graph in the repository."""
+        self.graphs[graph_data.graph_id] = graph_data
+        return graph_data.graph_id
+
     def get_graph_detail(self, graph_id: str) -> Optional[GraphDetailResponse]:
-        """Converts graph into Cytoscape-ready node and edge elements."""
+        """Converts graph into Cytoscape-ready node and edge elements with enriched names."""
         g = self.get_graph(graph_id)
         if g is None:
             return None
@@ -132,7 +191,6 @@ class BackendGraphManager:
         node_elements: List[NodeElement] = []
         for i in range(g.num_nodes):
             x_vec = g.x_matrix[i]
-            # Identify entity type (first 6 features)
             entity_idx = int(torch.argmax(x_vec[:len(ENTITY_TYPES)]).item())
             entity_name = ENTITY_TYPES[entity_idx].value
 
@@ -143,7 +201,16 @@ class BackendGraphManager:
             is_target = (i == g.target_idx) or bool(x_vec[PROPERTY_TO_IDX[SecurityProperty.TARGET]].item() > 0.5)
             is_owned = (i == g.source_idx) or bool(x_vec[PROPERTY_TO_IDX[SecurityProperty.OWNED]].item() > 0.5)
 
-            name = g.node_names[i] if g.node_names and i < len(g.node_names) else f"{entity_name}_{i}"
+            raw_name = g.node_names[i] if g.node_names and i < len(g.node_names) else None
+            name = format_human_friendly_node_name(
+                raw_name=raw_name,
+                idx=i,
+                entity_name=entity_name,
+                is_target=is_target,
+                is_hv=is_hv,
+                is_vuln=is_vuln,
+                is_owned=is_owned,
+            )
 
             node_elements.append(
                 NodeElement(
@@ -194,11 +261,6 @@ class BackendGraphManager:
             edges=edge_elements,
         )
 
-    def add_synthetic_graph(self, graph_data: NetworkGraphData) -> str:
-        """Stores a newly generated synthetic graph in the manager."""
-        self.graphs[graph_data.graph_id] = graph_data
-        return graph_data.graph_id
 
-
-# Global Singleton Instance
+# Global singleton instance for backend routes
 graph_manager = BackendGraphManager()
