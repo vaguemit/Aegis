@@ -32,7 +32,7 @@ export default function NetworkGraphView({
   useEffect(() => {
     if (!containerRef.current || !graphData) return;
 
-    // Convert nodes to Cytoscape format
+    // Convert nodes to Cytoscape format with authentic department colors
     const cyNodes = graphData.nodes.map((n) => {
       let nodeColor = '#334155';
       let borderColor = '#475569';
@@ -73,27 +73,27 @@ export default function NetworkGraphView({
         if (lowerName.includes('hr')) {
           deptName = 'Human Resources (HR)';
           deptTag = 'HR';
-          nodeColor = '#059669'; // Emerald
+          nodeColor = '#059669'; // Emerald HR
           borderColor = '#34D399';
         } else if (lowerName.includes('finance')) {
           deptName = 'Finance & Accounting';
           deptTag = 'Finance';
-          nodeColor = '#D97706'; // Amber Gold
+          nodeColor = '#D97706'; // Amber Gold Finance
           borderColor = '#FBBF24';
         } else if (lowerName.includes('engineering') || lowerName.includes('dev')) {
           deptName = 'Engineering & DevOps';
           deptTag = 'Dev';
-          nodeColor = '#2563EB'; // Royal Blue
+          nodeColor = '#2563EB'; // Royal Blue Dev
           borderColor = '#60A5FA';
         } else if (lowerName.includes('exec') || lowerName.includes('leadership')) {
           deptName = 'Executive Leadership';
           deptTag = 'Exec';
-          nodeColor = '#9333EA'; // Purple
+          nodeColor = '#9333EA'; // Purple Exec
           borderColor = '#C084FC';
         } else if (lowerName.includes('sales') || lowerName.includes('marketing')) {
           deptName = 'Sales & Marketing';
           deptTag = 'Sales';
-          nodeColor = '#DB2777'; // Pink
+          nodeColor = '#DB2777'; // Pink Sales
           borderColor = '#F472B6';
         } else {
           deptName = 'Corporate Workstations';
@@ -112,7 +112,7 @@ export default function NetworkGraphView({
       }
 
       if (n.is_owned) {
-        nodeColor = '#06B6D4'; // Cyan Initial Breach Foothold
+        nodeColor = '#06B6D4'; // Cyan Initial Foothold
         borderColor = '#67E8F9';
         nodeSize = Math.max(nodeSize, 38);
       }
@@ -263,7 +263,7 @@ export default function NetworkGraphView({
         {
           selector: '.faded',
           style: {
-            'opacity': 0.12,
+            'opacity': 0.15,
           },
         },
         {
@@ -283,13 +283,12 @@ export default function NetworkGraphView({
             'target-arrow-color': '#38BDF8',
           },
         },
-        /* COMPROMISED ATTACK PATH NODES & EDGES (CRISP, NO FUZZY GLOW) */
+        /* COMPROMISED ATTACK PATH: ONLY COMPROMISED NODES GET RED BORDER, EDGES TURN RED */
         {
           selector: '.attack-path-node',
           style: {
-            'background-color': '#E11D48',
-            'border-width': 3,
-            'border-color': '#FDA4AF',
+            'border-width': 3.5,
+            'border-color': '#F43F5E',
             'opacity': 1,
           },
         },
@@ -305,15 +304,7 @@ export default function NetworkGraphView({
             'z-index': 10,
           },
         },
-        /* GREEN SECURED DEFENSE CLASSES - CRISP, NO FUZZY GLOW */
-        {
-          selector: '.defense-secured-node',
-          style: {
-            'border-width': 3,
-            'border-color': '#10B981',
-            'opacity': 1,
-          },
-        },
+        /* GREEN SECURED DEFENSE: RED LINES TURN GREEN, ONLY PATCHED HOST GETS GREEN BORDER */
         {
           selector: '.defense-secured-edge',
           style: {
@@ -327,19 +318,10 @@ export default function NetworkGraphView({
           },
         },
         {
-          selector: '.defense-protected-target',
-          style: {
-            'border-width': 3,
-            'border-color': '#10B981',
-            'opacity': 1,
-          },
-        },
-        {
           selector: '.defense-patched-node',
           style: {
-            'background-color': '#059669',
-            'border-width': 3,
-            'border-color': '#34D399',
+            'border-width': 4,
+            'border-color': '#10B981',
             'opacity': 1,
           },
         },
@@ -363,12 +345,6 @@ export default function NetworkGraphView({
             'line-style': 'dotted',
             'line-color': '#64748B',
             'target-arrow-color': '#64748B',
-          },
-        },
-        {
-          selector: '.defense-unreachable-node',
-          style: {
-            'opacity': 0.3,
           },
         },
         {
@@ -495,30 +471,21 @@ export default function NetworkGraphView({
 
     // Reset special highlight classes
     cy.elements().removeClass(
-      'attack-path-node attack-path-edge defense-patched-node defense-secured-node defense-secured-edge defense-protected-target defense-severed-edge defense-unreachable-edge defense-unreachable-node defense-detour-edge'
+      'attack-path-node attack-path-edge defense-patched-node defense-secured-edge defense-severed-edge defense-unreachable-edge defense-detour-edge'
     );
 
     const attackNodes = activeAttackPath?.nodes || [];
 
-    // CASE A: IF DEFENSE IS ACTIVE -> TURN THE ENTIRE PATH INTO A VIBRANT SECURED GREEN PATH!
+    // CASE A: IF DEFENSE IS ACTIVE -> TURN RED ATTACK LINES INTO GREEN LINES, AND ONLY MARK THE PATCHED NODE!
     if (defenseResult) {
       const patchedIdx = defenseResult.mitigated_node_idx;
-      const patchedNode = cy.nodes(`[index = ${patchedIdx}]`);
-      patchedNode.addClass('defense-patched-node');
+      // ONLY the specific patched node gets the green badge
+      cy.nodes(`[index = ${patchedIdx}]`).addClass('defense-patched-node');
 
       const cutPoint = attackNodes.indexOf(patchedIdx);
+      const upToIdx = cutPoint !== -1 ? cutPoint : attackNodes.length - 1;
 
-      // 1. Turn all hops leading up to the defense into SECURED GREEN lines
-      const upToIdx = cutPoint !== -1 ? cutPoint : attackNodes.length;
-      for (let i = 0; i <= upToIdx && i < attackNodes.length; i++) {
-        const nIdx = attackNodes[i];
-        if (nIdx === patchedIdx) {
-          cy.nodes(`[index = ${nIdx}]`).addClass('defense-patched-node');
-        } else {
-          cy.nodes(`[index = ${nIdx}]`).addClass('defense-secured-node');
-        }
-      }
-
+      // 1. Turn all edges leading up to the defense into GREEN lines
       for (let i = 0; i < upToIdx && i < attackNodes.length - 1; i++) {
         const u = attackNodes[i];
         const v = attackNodes[i + 1];
@@ -530,18 +497,11 @@ export default function NetworkGraphView({
         }
       }
 
-      // 2. Turn all downstream hops (that adversary cannot reach) into faded unreachable grey lines
+      // 2. Turn all downstream cut-off edges into faint grey dotted lines (adversary cannot reach)
       if (cutPoint !== -1) {
         for (let i = cutPoint + 1; i < attackNodes.length; i++) {
-          const unreachableNodeIdx = attackNodes[i];
-          if (i === attackNodes.length - 1) {
-            // Target Crown Jewel is now protected!
-            cy.nodes(`[index = ${unreachableNodeIdx}]`).addClass('defense-protected-target');
-          } else {
-            cy.nodes(`[index = ${unreachableNodeIdx}]`).addClass('defense-unreachable-node');
-          }
-
           const prevNodeIdx = attackNodes[i - 1];
+          const unreachableNodeIdx = attackNodes[i];
           const unreachEdge = cy.edges(`[source = "n_${prevNodeIdx}"][target = "n_${unreachableNodeIdx}"], [source_idx = ${prevNodeIdx}][target_idx = ${unreachableNodeIdx}]`);
           unreachEdge.addClass('defense-unreachable-edge');
         }
@@ -558,7 +518,7 @@ export default function NetworkGraphView({
         }
       }
     } 
-    // CASE B: NO DEFENSE ACTIVE -> RENDER RED ATTACK PATH (ONLY COMPROMISED NODES TURN RED)
+    // CASE B: NO DEFENSE ACTIVE -> RENDER RED ATTACK PATH (ONLY COMPROMISED NODES GET RED BORDER)
     else if (attackNodes.length > 0) {
       attackNodes.forEach((nodeIdx) => {
         cy.nodes(`[index = ${nodeIdx}]`).addClass('attack-path-node');
@@ -781,11 +741,11 @@ export default function NetworkGraphView({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
           <div style={{ width: '8px', height: '8px', background: '#E11D48', borderRadius: '2px' }} />
-          <span>⚡ Compromised</span>
+          <span>⚡ Attack Path</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-          <div style={{ width: '8px', height: '8px', background: '#059669', borderRadius: '2px' }} />
-          <span>🛡️ Patched</span>
+          <div style={{ width: '8px', height: '8px', background: '#10B981', borderRadius: '2px' }} />
+          <span>🛡️ Defended</span>
         </div>
       </div>
 
