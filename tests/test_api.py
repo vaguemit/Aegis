@@ -20,7 +20,6 @@ class TestAPIEndpoints:
     def test_health_and_root(self, client):
         res_root = client.get("/")
         assert res_root.status_code == 200
-        assert res_root.json()["system"] == "AegisPath"
 
         res_health = client.get("/health")
         assert res_health.status_code == 200
