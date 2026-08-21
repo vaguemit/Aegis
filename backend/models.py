@@ -54,6 +54,9 @@ class GraphDetailResponse(BaseModel):
 
 class SyntheticGenerateRequest(BaseModel):
     scenario_name: Optional[str] = None
+    target_nodes: Optional[int] = None
+    target_edges: Optional[int] = None
+    edge_multiplier: Optional[float] = None
     num_computers: int = 35
     num_servers: int = 8
     num_users: int = 60

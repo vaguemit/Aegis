@@ -35,6 +35,9 @@ def get_graph_details(graph_id: str):
 def generate_synthetic_graph(req: SyntheticGenerateRequest):
     """Synthesizes a new enterprise network topology with Active Directory features."""
     generator = SyntheticEnterpriseGenerator(
+        target_nodes=req.target_nodes,
+        target_edges=req.target_edges,
+        edge_multiplier=req.edge_multiplier,
         num_computers=req.num_computers,
         num_servers=req.num_servers,
         num_users=req.num_users,
@@ -45,9 +48,11 @@ def generate_synthetic_graph(req: SyntheticGenerateRequest):
         spn_probability=req.spn_probability,
         seed=req.seed,
     )
-    scenario_title = req.scenario_name or f"syn_enterprise_{req.num_computers + req.num_servers + req.num_users}n"
+    node_est = req.target_nodes or (req.num_computers + req.num_servers + req.num_users + req.num_ous + req.num_gpos + req.num_domain_controllers + 6)
+    scenario_title = req.scenario_name or f"syn_enterprise_{node_est}n"
     graph_data = generator.generate(scenario_name=scenario_title)
 
     graph_manager.add_synthetic_graph(graph_data)
     detail = graph_manager.get_graph_detail(graph_data.graph_id)
     return detail
+

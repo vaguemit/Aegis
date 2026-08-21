@@ -3,6 +3,7 @@ Synthetic Enterprise Network & Attack Scenario Generator.
 Generates realistic, configurable Active Directory enterprise networks with
 subnets, organizational units, computers, domain controllers, privilege links,
 vulnerability distributions, and ground-truth multi-hop attack paths.
+Supports exact node count and edge density control.
 """
 
 import random
@@ -28,7 +29,7 @@ from src.data.schema import (
 class SyntheticEnterpriseGenerator:
     """
     Parametric synthetic generator for enterprise Active Directory topologies.
-    Produces both small laboratory graphs (20-50 nodes) and enterprise-scale networks (500-1000+ nodes).
+    Produces customizable graphs (15 to 1,000+ nodes) with fine-grained edge density control.
     """
 
     def __init__(
@@ -41,14 +42,45 @@ class SyntheticEnterpriseGenerator:
         num_domain_controllers: int = 2,
         cve_probability: float = 0.25,
         spn_probability: float = 0.15,
+        target_nodes: Optional[int] = None,
+        target_edges: Optional[int] = None,
+        edge_multiplier: Optional[float] = None,
         seed: Optional[int] = None,
     ):
-        self.num_computers = num_computers
-        self.num_servers = num_servers
-        self.num_users = num_users
-        self.num_ous = num_ous
-        self.num_gpos = num_gpos
-        self.num_domain_controllers = num_domain_controllers
+        self.target_nodes = target_nodes
+        self.target_edges = target_edges
+        self.edge_multiplier = edge_multiplier
+
+        if target_nodes is not None:
+            # Dynamically partition target_nodes into realistic AD components
+            target_n = max(15, target_nodes)
+            dc_count = max(1, int(target_n * 0.04))
+            ou_count = max(2, int(target_n * 0.06))
+            gpo_count = max(2, int(target_n * 0.05))
+            groups_count = 5
+            domain_count = 1
+
+            overhead = domain_count + dc_count + ou_count + gpo_count + groups_count
+            remaining = max(5, target_n - overhead)
+
+            srv_count = max(2, int(remaining * 0.20))
+            ws_count = max(2, int(remaining * 0.45))
+            usr_count = max(1, remaining - (srv_count + ws_count))
+
+            self.num_domain_controllers = dc_count
+            self.num_ous = ou_count
+            self.num_gpos = gpo_count
+            self.num_servers = srv_count
+            self.num_computers = ws_count
+            self.num_users = usr_count
+        else:
+            self.num_computers = num_computers
+            self.num_servers = num_servers
+            self.num_users = num_users
+            self.num_ous = num_ous
+            self.num_gpos = num_gpos
+            self.num_domain_controllers = num_domain_controllers
+
         self.cve_probability = cve_probability
         self.spn_probability = spn_probability
         self.seed = seed
@@ -65,6 +97,18 @@ class SyntheticEnterpriseGenerator:
         """
         nodes: List[NetworkNode] = []
         edges: List[NetworkEdge] = []
+        existing_edge_set: Set[Tuple[int, int, EdgeType]] = set()
+
+        def add_edge_safe(u: int, v: int, etype: EdgeType) -> bool:
+            if u == v:
+                return False
+            key = (u, v, etype)
+            if key not in existing_edge_set:
+                existing_edge_set.add(key)
+                edges.append(NetworkEdge(u, v, etype))
+                return True
+            return False
+
         node_id_counter = 0
 
         # 1. Create Domain Root Node
@@ -87,12 +131,11 @@ class SyntheticEnterpriseGenerator:
                 entity_type=EntityType.COMPUTER,
                 os=OperatingSystem.WIN_SERVER_2016_2019,
                 is_high_value=True,
-                is_target=(i == 0), # Primary DC is crown jewel target
+                is_target=(i == 0),
             )
             nodes.append(dc_node)
             dc_indices.append(node_id_counter)
-            # Domain Contains DC
-            edges.append(NetworkEdge(domain_idx, node_id_counter, EdgeType.CONTAINS))
+            add_edge_safe(domain_idx, node_id_counter, EdgeType.CONTAINS)
             node_id_counter += 1
 
         # 3. Create Organizational Units (OUs)
@@ -107,7 +150,7 @@ class SyntheticEnterpriseGenerator:
             )
             nodes.append(ou_node)
             ou_indices.append(node_id_counter)
-            edges.append(NetworkEdge(domain_idx, node_id_counter, EdgeType.CONTAINS))
+            add_edge_safe(domain_idx, node_id_counter, EdgeType.CONTAINS)
             node_id_counter += 1
 
         # 4. Create Group Policy Objects (GPOs)
@@ -120,9 +163,8 @@ class SyntheticEnterpriseGenerator:
             )
             nodes.append(gpo_node)
             gpo_indices.append(node_id_counter)
-            # Link GPO to random OU
             target_ou = random.choice(ou_indices)
-            edges.append(NetworkEdge(target_ou, node_id_counter, EdgeType.GP_LINK))
+            add_edge_safe(target_ou, node_id_counter, EdgeType.GP_LINK)
             node_id_counter += 1
 
         # 5. Create Core Security Groups
@@ -139,17 +181,15 @@ class SyntheticEnterpriseGenerator:
             )
             nodes.append(g_node)
             group_indices[g_name] = node_id_counter
-            # Domain contains groups
-            edges.append(NetworkEdge(domain_idx, node_id_counter, EdgeType.CONTAINS))
+            add_edge_safe(domain_idx, node_id_counter, EdgeType.CONTAINS)
             node_id_counter += 1
 
-        # Domain Admins have AdminTo / DCSync on Domain & DCs
         da_idx = group_indices["Domain Admins"]
         for dc_idx in dc_indices:
-            edges.append(NetworkEdge(da_idx, dc_idx, EdgeType.ADMIN_TO))
-            edges.append(NetworkEdge(da_idx, dc_idx, EdgeType.GENERIC_ALL))
-        edges.append(NetworkEdge(da_idx, domain_idx, EdgeType.DC_SYNC))
-        edges.append(NetworkEdge(da_idx, domain_idx, EdgeType.GET_CHANGES_ALL))
+            add_edge_safe(da_idx, dc_idx, EdgeType.ADMIN_TO)
+            add_edge_safe(da_idx, dc_idx, EdgeType.GENERIC_ALL)
+        add_edge_safe(da_idx, domain_idx, EdgeType.DC_SYNC)
+        add_edge_safe(da_idx, domain_idx, EdgeType.GET_CHANGES_ALL)
 
         # 6. Create Servers
         server_indices = []
@@ -168,13 +208,10 @@ class SyntheticEnterpriseGenerator:
             )
             nodes.append(srv_node)
             server_indices.append(node_id_counter)
-            # Assign server to OU
             ou_idx = random.choice(ou_indices)
-            edges.append(NetworkEdge(ou_idx, node_id_counter, EdgeType.CONTAINS))
-            # Server Operators are AdminTo Servers
-            edges.append(NetworkEdge(group_indices["Server Operators"], node_id_counter, EdgeType.ADMIN_TO))
-            # Server Operators has GenericAll on servers
-            edges.append(NetworkEdge(group_indices["Server Operators"], node_id_counter, EdgeType.GENERIC_ALL))
+            add_edge_safe(ou_idx, node_id_counter, EdgeType.CONTAINS)
+            add_edge_safe(group_indices["Server Operators"], node_id_counter, EdgeType.ADMIN_TO)
+            add_edge_safe(group_indices["Server Operators"], node_id_counter, EdgeType.GENERIC_ALL)
             node_id_counter += 1
 
         # 7. Create Client Workstations
@@ -192,25 +229,24 @@ class SyntheticEnterpriseGenerator:
             nodes.append(ws_node)
             workstation_indices.append(node_id_counter)
             ou_idx = random.choice(ou_indices)
-            edges.append(NetworkEdge(ou_idx, node_id_counter, EdgeType.CONTAINS))
-            # Workstation Admins / HelpDesk have CanRDP & AdminTo
-            edges.append(NetworkEdge(group_indices["Workstation Admins"], node_id_counter, EdgeType.ADMIN_TO))
-            edges.append(NetworkEdge(group_indices["HelpDesk"], node_id_counter, EdgeType.CAN_RDP))
+            add_edge_safe(ou_idx, node_id_counter, EdgeType.CONTAINS)
+            add_edge_safe(group_indices["Workstation Admins"], node_id_counter, EdgeType.ADMIN_TO)
+            add_edge_safe(group_indices["HelpDesk"], node_id_counter, EdgeType.CAN_RDP)
             node_id_counter += 1
 
         # 8. Create Users
         user_indices = []
         for i in range(self.num_users):
-            is_admin = (i < 3) # Top 3 are Domain Admins
-            is_srv_admin = (3 <= i < 8) # Next 5 are Server Operators
-            is_helpdesk = (8 <= i < 14) # Helpdesk staff
+            is_admin = (i < 2)
+            is_srv_admin = (2 <= i < 5)
+            is_helpdesk = (5 <= i < 9)
             has_spn = (random.random() < self.spn_probability) and not is_admin
 
             u_name = f"user_{i+1:03d}"
             if is_admin:
                 u_name = f"admin_{i+1:02d}"
             elif is_srv_admin:
-                u_name = f"srvadmin_{i-2:02d}"
+                u_name = f"srvadmin_{i-1:02d}"
 
             u_node = NetworkNode(
                 node_id=node_id_counter,
@@ -223,41 +259,34 @@ class SyntheticEnterpriseGenerator:
             user_idx = node_id_counter
             user_indices.append(user_idx)
 
-            # Assign to OU
             ou_idx = random.choice(ou_indices)
-            edges.append(NetworkEdge(ou_idx, user_idx, EdgeType.CONTAINS))
+            add_edge_safe(ou_idx, user_idx, EdgeType.CONTAINS)
 
-            # Group memberships
             if is_admin:
-                edges.append(NetworkEdge(user_idx, group_indices["Domain Admins"], EdgeType.MEMBER_OF))
+                add_edge_safe(user_idx, group_indices["Domain Admins"], EdgeType.MEMBER_OF)
             elif is_srv_admin:
-                edges.append(NetworkEdge(user_idx, group_indices["Server Operators"], EdgeType.MEMBER_OF))
+                add_edge_safe(user_idx, group_indices["Server Operators"], EdgeType.MEMBER_OF)
             elif is_helpdesk:
-                edges.append(NetworkEdge(user_idx, group_indices["HelpDesk"], EdgeType.MEMBER_OF))
+                add_edge_safe(user_idx, group_indices["HelpDesk"], EdgeType.MEMBER_OF)
             else:
-                edges.append(NetworkEdge(user_idx, group_indices["Standard Users"], EdgeType.MEMBER_OF))
+                add_edge_safe(user_idx, group_indices["Standard Users"], EdgeType.MEMBER_OF)
 
-            # HasSession relationships (users logged in on workstations)
             if workstation_indices:
                 assigned_ws = random.choice(workstation_indices)
-                edges.append(NetworkEdge(assigned_ws, user_idx, EdgeType.HAS_SESSION))
+                add_edge_safe(assigned_ws, user_idx, EdgeType.HAS_SESSION)
 
             node_id_counter += 1
 
         # 9. Synthesize Ground-Truth Attack Path (Source -> Target)
-        # Select initial foothold (standard workstation / low-priv user)
         foothold_ws = workstation_indices[0] if workstation_indices else 0
         nodes[foothold_ws].is_owned = True
-
-        # Target is Primary DC or Domain Admin
         target_node_idx = dc_indices[0] if dc_indices else domain_idx
         nodes[target_node_idx].is_target = True
 
-        # Construct realistic tactical lateral movement path:
-        # Foothold WS -> Local User Session -> Pivoting to Vulnerable Server -> Compromising Server Admin -> Domain Admin -> Domain Controller
         path_sequence = self._construct_tactical_attack_path(
             nodes=nodes,
             edges=edges,
+            add_edge_func=add_edge_safe,
             foothold_idx=foothold_ws,
             target_idx=target_node_idx,
             workstation_indices=workstation_indices,
@@ -266,7 +295,43 @@ class SyntheticEnterpriseGenerator:
             group_indices=group_indices,
         )
 
-        # 10. Build Numerical Matrices & Tensors
+        # 10. Fine-grained Edge Count & Density Adjustment
+        target_e = self.target_edges
+        if target_e is None and self.edge_multiplier is not None:
+            target_e = int(len(nodes) * self.edge_multiplier)
+
+        if target_e is not None:
+            # If we need more edges, add plausible enterprise relations
+            while len(edges) < target_e:
+                choice_roll = random.random()
+                if choice_roll < 0.35 and workstation_indices and server_indices:
+                    w = random.choice(workstation_indices)
+                    s = random.choice(server_indices)
+                    etype = random.choice([EdgeType.CAN_RDP, EdgeType.OPEN, EdgeType.EXECUTE_DCOM])
+                    add_edge_safe(w, s, etype)
+                elif choice_roll < 0.65 and user_indices and workstation_indices:
+                    u = random.choice(user_indices)
+                    w = random.choice(workstation_indices)
+                    etype = random.choice([EdgeType.ADMIN_TO, EdgeType.CAN_RDP, EdgeType.GENERIC_ALL])
+                    add_edge_safe(u, w, etype)
+                elif choice_roll < 0.85 and server_indices and len(server_indices) > 1:
+                    s1, s2 = random.sample(server_indices, 2)
+                    etype = random.choice([EdgeType.EXECUTE_DCOM, EdgeType.OPEN, EdgeType.ALLOWED_TO_DELEGATE])
+                    add_edge_safe(s1, s2, etype)
+                elif user_indices and server_indices:
+                    u = random.choice(user_indices)
+                    s = random.choice(server_indices)
+                    add_edge_safe(u, s, EdgeType.OPEN)
+                else:
+                    if len(nodes) > 2:
+                        u, v = random.sample(range(len(nodes)), 2)
+                        add_edge_safe(u, v, EdgeType.MEMBER_OF)
+
+                # Safeguard against infinite loop if fully saturated
+                if len(edges) >= len(nodes) * (len(nodes) - 1):
+                    break
+
+        # 11. Build Numerical Matrices & Tensors
         num_total_nodes = len(nodes)
         x_matrix = torch.zeros((num_total_nodes, NUM_NODE_FEATURES), dtype=torch.float32)
         adj_tensor = torch.zeros((num_total_nodes, num_total_nodes, NUM_EDGE_TYPES), dtype=torch.float32)
@@ -279,7 +344,6 @@ class SyntheticEnterpriseGenerator:
             e_idx = EDGE_TO_IDX[edge.edge_type]
             adj_tensor[edge.source_idx, edge.target_idx, e_idx] = 1.0
 
-        # Mark ground-truth edges in Y
         for hop in range(len(path_sequence) - 1):
             u = path_sequence[hop]
             v = path_sequence[hop + 1]
@@ -304,6 +368,7 @@ class SyntheticEnterpriseGenerator:
         self,
         nodes: List[NetworkNode],
         edges: List[NetworkEdge],
+        add_edge_func: Any,
         foothold_idx: int,
         target_idx: int,
         workstation_indices: List[int],
@@ -314,7 +379,7 @@ class SyntheticEnterpriseGenerator:
         """Synthesizes a realistic multi-hop attack chain and ensures supporting edges exist."""
         path: List[int] = [foothold_idx]
 
-        # Step 1: Find user session on foothold
+        # Step 1: User session on foothold
         user_on_ws = None
         for edge in edges:
             if edge.source_idx == foothold_idx and edge.edge_type == EdgeType.HAS_SESSION:
@@ -322,27 +387,27 @@ class SyntheticEnterpriseGenerator:
                 break
         if user_on_ws is None:
             user_on_ws = user_indices[-1] if user_indices else foothold_idx
-            edges.append(NetworkEdge(foothold_idx, user_on_ws, EdgeType.HAS_SESSION))
+            add_edge_func(foothold_idx, user_on_ws, EdgeType.HAS_SESSION)
         path.append(user_on_ws)
 
-        # Step 2: User exploits / logs in on an intermediate Pivot Server
+        # Step 2: Exploitation of Pivot Server
         pivot_server = server_indices[0] if server_indices else foothold_idx
         nodes[pivot_server].is_vulnerable = True
-        edges.append(NetworkEdge(user_on_ws, pivot_server, EdgeType.OPEN)) # Exploitation
+        add_edge_func(user_on_ws, pivot_server, EdgeType.OPEN)
         path.append(pivot_server)
 
-        # Step 3: High-privilege Server Admin is logged in on Pivot Server
-        srv_admin_user = user_indices[3] if len(user_indices) > 3 else user_on_ws
-        edges.append(NetworkEdge(pivot_server, srv_admin_user, EdgeType.HAS_SESSION))
+        # Step 3: Admin session on Pivot Server
+        srv_admin_user = user_indices[2] if len(user_indices) > 2 else user_on_ws
+        add_edge_func(pivot_server, srv_admin_user, EdgeType.HAS_SESSION)
         path.append(srv_admin_user)
 
-        # Step 4: Server Admin moves to Domain Admin Group / Domain Controller
+        # Step 4: Group Membership
         da_group = group_indices["Domain Admins"]
-        edges.append(NetworkEdge(srv_admin_user, da_group, EdgeType.MEMBER_OF))
+        add_edge_func(srv_admin_user, da_group, EdgeType.MEMBER_OF)
         path.append(da_group)
 
-        # Step 5: Domain Admin compromises Crown Jewel Target (Domain Controller)
-        edges.append(NetworkEdge(da_group, target_idx, EdgeType.ADMIN_TO))
+        # Step 5: DC Admin
+        add_edge_func(da_group, target_idx, EdgeType.ADMIN_TO)
         path.append(target_idx)
 
         return path

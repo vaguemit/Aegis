@@ -78,6 +78,16 @@ class TestSyntheticGenerator:
         assert graph_data.target_idx is not None
         assert len(graph_data.attack_path_nodes) >= 2
 
+    def test_custom_target_nodes_and_edges(self):
+        """Verifies synthetic generator with exact target_nodes and edge_multiplier."""
+        gen = SyntheticEnterpriseGenerator(target_nodes=80, edge_multiplier=4.0, seed=42)
+        g = gen.generate(scenario_name="custom_80n")
+
+        assert g.num_nodes == 80
+        num_actual_edges = (g.adj_tensor.sum(dim=-1) > 0.5).sum().item()
+        assert num_actual_edges >= 250 # Satisfies dense connectivity
+        assert len(g.attack_path_nodes) >= 3
+
 
 class TestPIGNNLoader:
     def test_load_single_benchmark_graph(self):
