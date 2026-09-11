@@ -5,8 +5,10 @@ Loads settings from environment variables or YAML configuration files with secur
 
 from dataclasses import dataclass, field
 import os
-from typing import Optional
-import yaml
+try:
+    import yaml
+except ImportError:
+    yaml = None
 
 
 @dataclass
@@ -43,7 +45,7 @@ class VMwareConfig:
     @classmethod
     def from_yaml(cls, file_path: str) -> "VMwareConfig":
         """Loads configuration from YAML file, falling back to environment defaults."""
-        if not os.path.exists(file_path):
+        if not os.path.exists(file_path) or yaml is None:
             return cls.from_env()
         try:
             with open(file_path, "r", encoding="utf-8") as f:
