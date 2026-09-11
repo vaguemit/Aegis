@@ -160,3 +160,45 @@ class OutsiderThreatEngine:
         )
 
         return new_graph, outsider_meta, bridge_meta
+
+    def inject_random_outsider_threat(
+        self,
+        graph_data: NetworkGraphData,
+    ) -> Tuple[NetworkGraphData, OutsiderNode, InsiderBridge]:
+        """Injects an outsider threat into a randomly selected workstation or server."""
+        # Find workstation or server candidates
+        candidates = []
+        for i in range(graph_data.num_nodes):
+            if i != graph_data.target_idx:
+                name = graph_data.node_names[i].lower() if graph_data.node_names else ""
+                if "dc" not in name:
+                    candidates.append(i)
+
+        insider_idx = self.rng.choice(candidates) if candidates else 0
+        outsider_type = self.rng.choice(list(OutsiderType))
+        mechanism = self.rng.choice(list(BridgeMechanism))
+        edge_type = self.rng.choice([EdgeType.CAN_RDP, EdgeType.ADMIN_TO, EdgeType.EXECUTE_DCOM])
+
+        return self.inject_outsider_node(
+            graph_data=graph_data,
+            insider_idx=insider_idx,
+            outsider_type=outsider_type,
+            mechanism=mechanism,
+            edge_type=edge_type,
+        )
+
+    def extract_bridges_from_graph(self, graph_data: NetworkGraphData) -> List[Tuple[int, int]]:
+        """Identifies edges connecting internal domain nodes to outsider nodes."""
+        outsider_indices = graph_data.get_outsider_indices()
+        if not outsider_indices:
+            return []
+
+        bridges = []
+        for out_idx in outsider_indices:
+            # Check inbound and outbound connections
+            for i in range(graph_data.num_nodes):
+                if i not in outsider_indices:
+                    # Check if edge exists in any channel
+                    if graph_data.adj_tensor[i, out_idx].sum() > 0 or graph_data.adj_tensor[out_idx, i].sum() > 0:
+                        bridges.append((i, out_idx))
+        return bridges
