@@ -18,6 +18,8 @@ from backend.routes import (
     experiments_router,
     simulation_router,
     xai_router,
+    vmware_router,
+    outsiders_router,
 )
 
 app = FastAPI(
@@ -45,6 +47,8 @@ app.include_router(defense_router)
 app.include_router(experiments_router)
 app.include_router(simulation_router)
 app.include_router(xai_router)
+app.include_router(vmware_router)
+app.include_router(outsiders_router)
 
 
 @app.get("/health", tags=["Health"])

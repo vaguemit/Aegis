@@ -8,6 +8,9 @@ from backend.routes.experiments import router as experiments_router
 from backend.routes.simulation import router as simulation_router
 from backend.routes.xai import router as xai_router
 
+from backend.routes.vmware_routes import router as vmware_router
+from backend.routes.outsiders_routes import router as outsiders_router
+
 __all__ = [
     "graphs_router",
     "prediction_router",
@@ -16,4 +19,6 @@ __all__ = [
     "experiments_router",
     "simulation_router",
     "xai_router",
+    "vmware_router",
+    "outsiders_router",
 ]
