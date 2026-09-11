@@ -109,16 +109,18 @@ class GraphSAGEModel(nn.Module):
 
         self.out_proj = nn.Linear(hidden_dim, out_dim)
 
-        # Edge Classifier MLP
-        self.edge_classifier = nn.Sequential(
-            nn.Linear(out_dim * 4, hidden_dim),
+        # High-performance Scaled Bilinear Edge Link Predictor:
+        self.src_proj = nn.Sequential(
+            nn.Linear(out_dim, hidden_dim),
             nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.ReLU(),
-            nn.Linear(hidden_dim // 2, 1),
-            nn.Sigmoid(),
+            nn.Linear(hidden_dim, hidden_dim),
         )
+        self.dst_proj = nn.Sequential(
+            nn.Linear(out_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+        )
+        self.edge_bias = nn.Parameter(torch.zeros(1))
 
     def encode(self, x: torch.Tensor, adj_tensor: torch.Tensor) -> torch.Tensor:
         """Computes node embeddings H."""
@@ -138,13 +140,12 @@ class GraphSAGEModel(nn.Module):
         batch_size, num_nodes, _ = x.shape
         h = self.encode(x, adj_tensor)
 
-        h_u = h.unsqueeze(2).expand(-1, -1, num_nodes, -1)
-        h_v = h.unsqueeze(1).expand(-1, num_nodes, -1, -1)
-        h_mult = h_u * h_v
-        h_diff = torch.abs(h_u - h_v)
+        h_src = self.src_proj(h)
+        h_dst = self.dst_proj(h)
 
-        edge_feat = torch.cat([h_u, h_v, h_mult, h_diff], dim=-1)
-        probs = self.edge_classifier(edge_feat).squeeze(-1)
+        scale = float(h_src.shape[-1]) ** 0.5
+        raw_scores = torch.bmm(h_src, h_dst.transpose(1, 2)) / scale
+        probs = torch.sigmoid(raw_scores + self.edge_bias)
 
         existing_mask = (adj_tensor.sum(dim=-1) > 0.5).float()
         masked_probs = probs * existing_mask
