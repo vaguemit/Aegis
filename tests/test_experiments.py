@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from src.data.synthetic_generator import SyntheticEnterpriseGenerator
 from src.models.gat import GATModel
 from src.experiments.trainer import ModelTrainer, EvaluationMetrics
-from src.experiments.scalability import run_scalability_benchmark
+from src.experiments.scalability import run_scalability_benchmark, run_outsider_injection_benchmark
 
 
 @pytest.fixture
@@ -48,3 +48,12 @@ class TestExperimentPipeline:
             assert r["actual_nodes"] > 0
             assert r["gat_inference_ms"] > 0.0
             assert r["beam_search_ms"] > 0.0
+
+    def test_outsider_injection_benchmark(self):
+        # Test outsider tensor expansion & re-inference benchmark
+        results = run_outsider_injection_benchmark(node_scales=[25])
+        assert len(results) == 1
+        r = results[0]
+        assert r["expanded_nodes"] == r["initial_nodes"] + 1
+        assert r["injection_time_ms"] > 0.0
+        assert r["inference_time_ms"] > 0.0
