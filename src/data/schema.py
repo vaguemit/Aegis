@@ -223,3 +223,18 @@ class NetworkGraphData:
             if self.target_idx is not None and current == self.target_idx:
                 break
         return path
+
+    def get_outsider_indices(self) -> List[int]:
+        """Returns node indices identified as unmanaged or outsider entities."""
+        if not self.node_names:
+            return []
+        outsiders = []
+        for idx, name in enumerate(self.node_names):
+            n_lower = name.lower()
+            if any(k in n_lower for k in ["outsider", "rogue", "shadow", "unmanaged", "byod", "external"]):
+                outsiders.append(idx)
+        return outsiders
+
+    def has_outsider_nodes(self) -> bool:
+        """Checks if the topology contains any outsider or rogue nodes."""
+        return len(self.get_outsider_indices()) > 0
