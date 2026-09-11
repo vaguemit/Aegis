@@ -202,3 +202,55 @@ class OutsiderThreatEngine:
                     if graph_data.adj_tensor[i, out_idx].sum() > 0 or graph_data.adj_tensor[out_idx, i].sum() > 0:
                         bridges.append((i, out_idx))
         return bridges
+
+    def inject_covert_tunnel(
+        self,
+        graph_data: NetworkGraphData,
+        insider_idx: int,
+        tunnel_port: int = 1080,
+    ) -> Tuple[NetworkGraphData, OutsiderNode, InsiderBridge]:
+        """Simulates an insider machine establishing a reverse SOCKS proxy (e.g. Chisel, Ligolo)."""
+        insider_name = graph_data.node_names[insider_idx] if graph_data.node_names else f"node_{insider_idx}"
+        outsider_name = f"C2-REVERSE-PROXY-{insider_name.upper()}"
+        return self.inject_outsider_node(
+            graph_data=graph_data,
+            insider_idx=insider_idx,
+            outsider_type=OutsiderType.REVERSE_TUNNEL,
+            mechanism=BridgeMechanism.SOCKS_CHISEL_TUNNEL,
+            edge_type=EdgeType.OPEN,
+            outsider_name=outsider_name,
+        )
+
+    def inject_dual_homed_nic(
+        self,
+        graph_data: NetworkGraphData,
+        insider_idx: int,
+    ) -> Tuple[NetworkGraphData, OutsiderNode, InsiderBridge]:
+        """Simulates an insider asset connected to both the corporate LAN and an unmanaged external network."""
+        insider_name = graph_data.node_names[insider_idx] if graph_data.node_names else f"node_{insider_idx}"
+        outsider_name = f"ROGUE-TETHER-{insider_name.upper()}"
+        return self.inject_outsider_node(
+            graph_data=graph_data,
+            insider_idx=insider_idx,
+            outsider_type=OutsiderType.ROGUE_WORKSTATION,
+            mechanism=BridgeMechanism.DUAL_HOMED_NIC,
+            edge_type=EdgeType.ADMIN_TO,
+            outsider_name=outsider_name,
+        )
+
+    def inject_shadow_vm(
+        self,
+        graph_data: NetworkGraphData,
+        insider_idx: int,
+    ) -> Tuple[NetworkGraphData, OutsiderNode, InsiderBridge]:
+        """Simulates a rogue hypervisor VM spawned locally inside an insider host."""
+        insider_name = graph_data.node_names[insider_idx] if graph_data.node_names else f"node_{insider_idx}"
+        outsider_name = f"SHADOW-VM-{insider_name.upper()}"
+        return self.inject_outsider_node(
+            graph_data=graph_data,
+            insider_idx=insider_idx,
+            outsider_type=OutsiderType.SHADOW_VM,
+            mechanism=BridgeMechanism.VMWARE_SHARED_NAT,
+            edge_type=EdgeType.EXECUTE_DCOM,
+            outsider_name=outsider_name,
+        )
