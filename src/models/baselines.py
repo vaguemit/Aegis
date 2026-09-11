@@ -93,7 +93,9 @@ class CVSSWeightedShortestPathBaseline:
             binary_adj = (adj_tensor > 0.5).cpu().numpy()
 
         vuln_col = PROPERTY_TO_IDX[SecurityProperty.IS_VULNERABLE]
+        owned_col = PROPERTY_TO_IDX[SecurityProperty.OWNED]
         is_vuln = (x_matrix[:, vuln_col] > 0.5).cpu().numpy()
+        is_owned = (x_matrix[:, owned_col] > 0.5).cpu().numpy()
 
         G = nx.DiGraph()
         for u in range(num_nodes):
@@ -103,6 +105,8 @@ class CVSSWeightedShortestPathBaseline:
                     cost = self.base_weight
                     if is_vuln[v]:
                         cost *= self.vuln_discount
+                    if is_owned[u]:
+                        cost *= 0.75
                     G.add_edge(u, v, weight=cost)
 
         try:
