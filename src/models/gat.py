@@ -186,17 +186,18 @@ class GATModel(nn.Module):
 
         self.out_proj = nn.Linear(hidden_dim, out_dim)
 
-        # Edge-Pair Attack Probability MLP:
-        # Input: [h_u || h_v || (h_u * h_v) || |h_u - h_v|] (dimension: 4 * out_dim)
-        self.edge_classifier = nn.Sequential(
-            nn.Linear(out_dim * 4, hidden_dim),
+        # High-Performance Scaled Bilinear Edge Link Predictor:
+        self.src_proj = nn.Sequential(
+            nn.Linear(out_dim, hidden_dim),
             nn.LeakyReLU(0.2),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.LeakyReLU(0.2),
-            nn.Linear(hidden_dim // 2, 1),
-            nn.Sigmoid(),
+            nn.Linear(hidden_dim, hidden_dim),
         )
+        self.dst_proj = nn.Sequential(
+            nn.Linear(out_dim, hidden_dim),
+            nn.LeakyReLU(0.2),
+            nn.Linear(hidden_dim, hidden_dim),
+        )
+        self.edge_bias = nn.Parameter(torch.zeros(1))
 
     def encode(
         self,
@@ -235,14 +236,13 @@ class GATModel(nn.Module):
         batch_size, num_nodes, _ = x.shape
         h = self.encode(x, adj_tensor, return_attention=return_attention) # (B, N, out_dim)
 
-        # Pairwise representations
-        h_u = h.unsqueeze(2).expand(-1, -1, num_nodes, -1)
-        h_v = h.unsqueeze(1).expand(-1, num_nodes, -1, -1)
-        h_mult = h_u * h_v
-        h_diff = torch.abs(h_u - h_v)
+        h_src = self.src_proj(h) # (B, N, hidden_dim)
+        h_dst = self.dst_proj(h) # (B, N, hidden_dim)
 
-        edge_feat = torch.cat([h_u, h_v, h_mult, h_diff], dim=-1) # (B, N, N, 4D)
-        probs = self.edge_classifier(edge_feat).squeeze(-1)        # (B, N, N)
+        # Scaled dot-product link prediction: (B, N, D) @ (B, D, N) -> (B, N, N)
+        scale = float(h_src.shape[-1]) ** 0.5
+        raw_scores = torch.bmm(h_src, h_dst.transpose(1, 2)) / scale
+        probs = torch.sigmoid(raw_scores + self.edge_bias)
 
         # Enforce that only topologically existing network connections can be predicted
         existing_mask = (adj_tensor.sum(dim=-1) > 0.5).float()
