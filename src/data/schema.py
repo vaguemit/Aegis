@@ -231,7 +231,7 @@ class NetworkGraphData:
         outsiders = []
         for idx, name in enumerate(self.node_names):
             n_lower = name.lower()
-            if any(k in n_lower for k in ["outsider", "rogue", "shadow", "unmanaged", "byod", "external"]):
+            if any(k in n_lower for k in ["outsider", "rogue", "shadow", "unmanaged", "byod", "external", "proxy", "c2", "tunnel"]):
                 outsiders.append(idx)
         return outsiders
 
