@@ -61,7 +61,7 @@ class OutsiderRemediationPlanner:
             f"[{timestamp_str}] [SWITCH] vNIC port isolation executed. Traffic redirected to Quarantine VLAN 999.",
             f"[{timestamp_str}] [EDR] Terminated rogue tunnel process on insider host (Process: chisel.exe / Port: {bridge.port}).",
             f"[{timestamp_str}] [ACTIVE_DIRECTORY] Purged Kerberos tickets and invalidated logon tokens for associated user session.",
-            f"[{timestamp_str}] [AEGISPATH] Attack path severed. ΔRisk: {delta_risk_pct}% (Risk reduced from {baseline_risk} to {remediated_risk}).",
+            f"[{timestamp_str}] [AEGISPATH] Attack path severed. Delta-Risk: {delta_risk_pct}% (Risk reduced from {baseline_risk} to {remediated_risk}).",
         ]
 
         return RemediationPlan(
