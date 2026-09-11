@@ -57,3 +57,11 @@ class TestExperimentPipeline:
         assert r["expanded_nodes"] == r["initial_nodes"] + 1
         assert r["injection_time_ms"] > 0.0
         assert r["inference_time_ms"] > 0.0
+
+    def test_outsider_defense_ablation_experiment(self):
+        from src.experiments.ablation import run_outsider_defense_ablation
+        results = run_outsider_defense_ablation(num_samples=2)
+        assert results["num_evaluated_graphs"] == 2
+        assert results["mean_elevated_risk"] >= results["mean_baseline_risk"]
+        assert results["severance_success_rate"] == 100.0
+        assert results["mean_severance_delta_pct"] <= 0.0
