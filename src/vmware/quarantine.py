@@ -132,3 +132,36 @@ class VMwareActiveQuarantine:
             new_state=new_state,
             timestamp=time.time(),
         )
+
+    def disconnect_all_vnics(self, vm_id: str) -> VMwareQuarantineResult:
+        """Physically disconnects all virtual Ethernet adapters for the VM."""
+        return self.quarantine_vm(vm_id=vm_id, method=QuarantineMethod.VNIC_DISCONNECT)
+
+    def emergency_power_off(self, vm_id: str) -> VMwareQuarantineResult:
+        """Forces immediate hypervisor power off to halt active ransomware or exfiltration."""
+        vm = self.vm_manager.get_vm_by_id(vm_id) or self.vm_manager.get_vm_by_name(vm_id)
+        vm_name = vm.name if vm else vm_id
+        action_id = f"poweroff-{uuid.uuid4().hex[:8]}"
+
+        prev_state = {"power_state": vm.power_state.value if vm else "UNKNOWN"}
+        if vm:
+            vm.power_state = from_models_power_state = "POWERED_OFF"
+
+        self.streamer.record_event(
+            event_type="VmPoweredOffEvent",
+            vm_name=vm_name,
+            message=f"Emergency Defense: VM '{vm_name}' powered off by AegisPath.",
+            severity="CRITICAL",
+        )
+
+        return VMwareQuarantineResult(
+            action_id=action_id,
+            vm_id=vm_id,
+            vm_name=vm_name,
+            method=QuarantineMethod.POWER_OFF,
+            success=True,
+            details=f"VM '{vm_name}' emergency power off completed.",
+            previous_state=prev_state,
+            new_state={"power_state": "POWERED_OFF"},
+            timestamp=time.time(),
+        )
