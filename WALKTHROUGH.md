@@ -95,5 +95,35 @@ Run the live server directly on port 8000:
 .\run_backend.ps1
 ```
 - **Live Cyber Command Center UI**: [http://localhost:8000](http://localhost:8000)
-- **Interactive Swagger API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Full Automated Test Suite**: `.\.venv\Scripts\pytest.exe -v` (42/42 tests passing).
+- **Full Automated Test Suite**: `.\.venv\Scripts\pytest.exe -v` (80+ tests passing across all suites).
+
+---
+
+## 5. Outsider Node & Insider Bridge Defense System
+
+When an insider asset introduces an outsider entity (via reverse SOCKS proxy, dual-homed NIC, or shadow VM), AegisPath:
+1. Dynamically expands tensor representations ($\mathbf{X}' \in \mathbb{R}^{(N+1) \times 20}$, $\mathbf{A}' \in \mathbb{R}^{(N+1) \times (N+1) \times 16}$) using inductive GAT layers.
+2. Identifies boundary-crossing attention spikes with `AnomalousBridgeDetector`.
+3. Quantifies risk elevation $\Delta\text{Risk}_{\text{elevated}}$ toward enterprise crown jewels.
+4. Executes counterfactual bridge severance, reducing attack reachability to 0% (-100% path risk).
+
+Run the interactive demonstration:
+```powershell
+.\.venv\Scripts\python.exe scripts\demo_outsider_bridge.py
+```
+
+---
+
+## 6. VMware vSphere Production Implementation & Active Quarantine
+
+AegisPath connects directly to VMware vCenter Server and bare-metal ESXi hypervisors:
+1. **Live Inventory Discovery**: Discovers ESXi 8.0 hosts, virtual machines, vSwitches, and portgroup assignments.
+2. **Rogue / Shadow VM Detection**: Flags unmanaged outsider VMs (e.g. Kali Linux), non-domain joined endpoints, and promiscuous vNICs.
+3. **Forensic Volatile RAM Snapshots**: Creates point-in-time snapshots with memory dumps before executing isolation.
+4. **VMware Tools In-Guest Process Control**: Terminates unauthorized reverse proxies (`chisel.exe`) directly via the hypervisor VIX bus.
+5. **Network Quarantine**: Dynamically migrates compromised vNICs to isolated `Quarantine_VLAN_999` or disconnects the virtual Ethernet adapter.
+
+Run the automated VMware active defense CLI:
+```powershell
+.\.venv\Scripts\python.exe scripts\vmware_quarantine_demo.py
+```
