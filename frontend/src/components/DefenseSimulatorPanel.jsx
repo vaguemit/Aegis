@@ -190,6 +190,43 @@ export default function DefenseSimulatorPanel({
           </div>
         )}
       </div>
+
+      {/* Insider-Outsider Threat Simulation */}
+      <div style={{ borderTop: '1px solid #1A1A24', paddingTop: '10px', marginTop: '6px' }}>
+        <h4 style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#F87171', letterSpacing: '0.05em', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <AlertTriangle size={11} color="#EF4444" /> Insider-Outsider Bridge Defense
+        </h4>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            className="btn-cyber"
+            onClick={async () => {
+              try {
+                await fetch('/api/outsiders/inject', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ threat_vector: 'REVERSE_TUNNEL' }) });
+                window.location.reload();
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+            style={{ flex: 1, fontSize: '0.66rem', padding: '5px', background: '#2B1216', color: '#FCA5A5', border: '1px solid #7F1D1D' }}
+          >
+            Inject Rogue Bridge
+          </button>
+          <button
+            className="btn-cyber"
+            onClick={async () => {
+              try {
+                await fetch('/api/outsiders/sever', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ insider_node_idx: 0, outsider_node_idx: 1 }) });
+                window.location.reload();
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+            style={{ flex: 1, fontSize: '0.66rem', padding: '5px', background: '#0F291E', color: '#6EE7B7', border: '1px solid #065F46' }}
+          >
+            Sever Bridge (VLAN 999)
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
