@@ -128,5 +128,51 @@ def run_scalability_benchmark(
     return results
 
 
+def run_outsider_injection_benchmark(node_scales: List[int] = [30, 60, 120]) -> List[Dict[str, Any]]:
+    """Measures tensor expansion and GAT re-inference latency under dynamic outsider injection."""
+    from src.defense.outsider_engine import OutsiderThreatEngine
+    from src.defense.risk_elevation import OutsiderRiskEvaluator
+
+    engine = OutsiderThreatEngine(seed=42)
+    evaluator = OutsiderRiskEvaluator()
+    model = GATModel(in_features=20, hidden_dim=64, out_dim=64, num_heads=4, num_layers=2)
+    model.eval()
+
+    benchmarks = []
+    for n in node_scales:
+        gen = SyntheticEnterpriseGenerator(
+            num_computers=int(n * 0.45),
+            num_servers=int(n * 0.15),
+            num_users=int(n * 0.40),
+            seed=42,
+        )
+        base_g = gen.generate()
+
+        t0 = time.perf_counter()
+        injected_g, _, _ = engine.inject_covert_tunnel(base_g, insider_idx=2)
+        t_inject = (time.perf_counter() - t0) * 1000.0
+
+        t1 = time.perf_counter()
+        with torch.no_grad():
+            _ = model(injected_g.x_matrix, injected_g.adj_tensor)
+        t_infer = (time.perf_counter() - t1) * 1000.0
+
+        t2 = time.perf_counter()
+        risk_res = evaluator.evaluate_risk_elevation(base_g, injected_g, injected_g.num_nodes - 1, 2)
+        t_risk = (time.perf_counter() - t2) * 1000.0
+
+        benchmarks.append({
+            "initial_nodes": base_g.num_nodes,
+            "expanded_nodes": injected_g.num_nodes,
+            "injection_time_ms": round(t_inject, 3),
+            "inference_time_ms": round(t_infer, 3),
+            "risk_eval_time_ms": round(t_risk, 3),
+            "total_overhead_ms": round(t_inject + t_infer + t_risk, 3),
+            "risk_increase_pct": risk_res["risk_increase_percent"],
+        })
+
+    return benchmarks
+
+
 if __name__ == "__main__":
     run_scalability_benchmark()
