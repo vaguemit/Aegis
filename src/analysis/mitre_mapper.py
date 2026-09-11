@@ -98,6 +98,36 @@ class MitreAttackMapper:
             detection_methods=["EventID 4661 (A handle to an AD object was requested)", "BloodHound / SharpHound LDAP query volume spikes"],
             mitigation_ids=["M1017 (Auditing and Access Control Lists)"],
         ),
+        "ReverseProxy": MitreTechnique(
+            tactic_id="TA0011",
+            tactic_name="Command and Control",
+            technique_id="T1090",
+            technique_name="Proxy",
+            sub_technique_id="T1090.001",
+            description="Adversary establishes a reverse SOCKS proxy (e.g. Chisel, Ligolo) from an insider node to pivot external traffic into the enterprise.",
+            detection_methods=["Unusual outbound TLS connections on non-standard ports", "Sysmon EventID 3 network connection from unexpected binaries"],
+            mitigation_ids=["M1037 (Filter Network Traffic)", "M1030 (Network Segmentation)"],
+        ),
+        "ProtocolTunnel": MitreTechnique(
+            tactic_id="TA0011",
+            tactic_name="Command and Control",
+            technique_id="T1572",
+            technique_name="Protocol Tunneling",
+            sub_technique_id=None,
+            description="Adversary tunnels unauthorized traffic inside standard administrative protocols to bypass inspection.",
+            detection_methods=["Deep packet inspection for protocol anomalies", "NetFlow connection duration tracking"],
+            mitigation_ids=["M1031 (Network Intrusion Prevention)"],
+        ),
+        "RogueBridge": MitreTechnique(
+            tactic_id="TA0001",
+            tactic_name="Initial Access",
+            technique_id="T1200",
+            technique_name="Hardware Additions",
+            sub_technique_id=None,
+            description="Adversary or insider attaches an unauthorized network interface, rogue VM, or physical drop device.",
+            detection_methods=["802.1X NAC authentication failures", "DHCP lease anomaly monitoring"],
+            mitigation_ids=["M1035 (Limit Access to Resource Over Network)"],
+        ),
     }
 
     @classmethod
