@@ -239,3 +239,34 @@ class EnterpriseVMSimulator:
             "syslog_message": f"Adversary authenticated from {src_ip} ({src_vm.vm_name if src_vm else 'SRC'}) to {dst_ip} ({dst_vm.vm_name if dst_vm else 'DST'}) via {protocol}. Process: ntdsutil.exe / powershell.exe",
         }
         return event
+
+    def to_vmware_vm_info(self, vm_inst: VirtualMachineInstance) -> Any:
+        """Converts internal simulation instance into formal VMwareVMInfo domain model."""
+        from src.vmware.models import VMwareVMInfo, VMwareNICInfo, PowerState
+        nics = [
+            VMwareNICInfo(
+                label=a.interface_name,
+                mac_address=a.mac_address,
+                ip_addresses=[a.ip_address],
+                portgroup=vm_inst.vswitch,
+                vswitch=vm_inst.vswitch,
+                vlan_id=a.vlan_id,
+                is_connected=True,
+                is_promiscuous=a.is_promiscuous,
+            )
+            for a in vm_inst.network_adapters
+        ]
+        return VMwareVMInfo(
+            vm_id=vm_inst.vm_id,
+            name=vm_inst.vm_name,
+            power_state=PowerState.POWERED_ON,
+            guest_os=vm_inst.os_name,
+            host_id=vm_inst.hypervisor_host,
+            cpu_count=vm_inst.cpu_cores,
+            memory_mb=vm_inst.ram_gb * 1024,
+            ip_address=vm_inst.network_adapters[0].ip_address if vm_inst.network_adapters else None,
+            nics=nics,
+            is_domain_joined=vm_inst.is_domain_controller or "dc" in vm_inst.vm_name.lower(),
+            is_outsider=False,
+            is_isolated=vm_inst.state == VMState.ISOLATED,
+        )
