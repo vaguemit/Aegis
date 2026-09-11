@@ -86,10 +86,23 @@ Rather than assessing vulnerabilities in isolation or computing naive static rea
 - Synthesizes realistic hypervisors (**VMware ESXi 8.0**, **Proxmox VE 8.1**, **Hyper-V**), virtual switches, vNIC MAC addresses, open service ports (`135`, `445`, `3389`, `5985`, `88`), active user logon sessions, and real-time Syslog telemetry.
 
 ### 7. Obsidian Command Center Dashboard
-- **Hierarchical Tiered View**: Organizes topologies into clean layers (Domain Controllers $\to$ Production Servers $\to$ Workstations).
+- **Hierarchical Tiered View**: Organizes topologies into clean layers (Domain Controllers -> Production Servers -> Workstations).
 - **Concentric Security Rings**: Displays defense-in-depth perimeters with crown jewels at the center.
 - **Dynamic Origin & Target Picker**: Select any starting machine and any crown jewel destination with 1 click.
 - **Live Attack Timeline Player**: Step-by-step playback with synchronized terminal audit events.
+
+### 8. Outsider Node & Insider Bridge Defense
+- **Threat Scenario Modeling**: Simulates scenarios where a compromised insider host introduces an unmanaged outsider node via **Reverse SOCKS Proxies (Chisel/Ligolo)**, **Dual-Homed NIC Tethering**, or **Shadow Virtual Machines**.
+- **Inductive Dynamic Graph Expansion**: Expands feature matrix $X \in \mathbb{R}^{N \times 20} \to \mathbb{R}^{(N+1) \times 20}$ and adjacency tensor $A \in \mathbb{R}^{N \times N \times 16} \to \mathbb{R}^{(N+1) \times (N+1) \times 16}$ on-the-fly.
+- **Boundary-Crossing Attention Anomaly Detection**: GAT attention heads isolate cross-perimeter edges with high bottleneck confidence.
+- **Topological & Network Severance**: Instantly isolates the bridge at the virtual switch level (-100% path risk reduction).
+
+### 9. Production VMware vSphere & ESXi Integration Suite
+- **Direct vCenter REST & SOAP API Integration**: Connects to VMware vCenter Server 8.0 and standalone ESXi bare-metal hypervisors.
+- **Automated Hypervisor Network Quarantine**: Isolates compromised VMs into `Quarantine_VLAN_999` or disconnects virtual Ethernet adapters.
+- **Volatile RAM Forensic Preservation**: Dumps memory snapshots (`createSnapshot(memory=True)`) before incident remediation.
+- **VMware Guest Operations Process Control**: Enumerate running in-guest processes and terminate malicious tunneling binaries (`chisel.exe`) via hypervisor VIX bus without network dependency.
+- **Live Topology Synchronization**: Translates production VMware clusters directly into AegisPath Active Directory graph tensors.
 
 ---
 
