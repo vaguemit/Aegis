@@ -134,3 +134,32 @@ class VMwareGraphSynchronizer:
             source_idx=foothold_idx,
             target_idx=dc_idx,
         )
+
+    def sync_delta_update(
+        self,
+        current_graph: NetworkGraphData,
+        vm_index: int,
+        action: str = "ISOLATE",
+    ) -> NetworkGraphData:
+        """Applies fast in-place delta updates to graph tensors upon dynamic hypervisor events."""
+        new_adj = current_graph.adj_tensor.clone()
+        new_y = current_graph.y_matrix.clone() if current_graph.y_matrix is not None else None
+
+        if action == "ISOLATE":
+            # Zero out all adjacency channels for this VM
+            new_adj[vm_index, :, :] = 0.0
+            new_adj[:, vm_index, :] = 0.0
+            if new_y is not None:
+                new_y[vm_index, :] = 0.0
+                new_y[:, vm_index] = 0.0
+
+        return NetworkGraphData(
+            graph_id=f"{current_graph.graph_id}_delta_{action.lower()}",
+            num_nodes=current_graph.num_nodes,
+            x_matrix=current_graph.x_matrix.clone(),
+            adj_tensor=new_adj,
+            y_matrix=new_y,
+            node_names=list(current_graph.node_names) if current_graph.node_names else None,
+            source_idx=current_graph.source_idx,
+            target_idx=current_graph.target_idx,
+        )
