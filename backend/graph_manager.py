@@ -174,12 +174,25 @@ class BackendGraphManager:
             )
         return summaries
 
-    def get_graph(self, graph_id: str) -> Optional[NetworkGraphData]:
+    def get_graph(self, graph_id: Optional[str] = None) -> Optional[NetworkGraphData]:
+        if graph_id is None:
+            if hasattr(self, "_active_graph_id") and self._active_graph_id in self.graphs:
+                return self.graphs[self._active_graph_id]
+            if self.graphs:
+                return next(iter(self.graphs.values()))
+            return None
         return self.graphs.get(graph_id)
+
+    def set_graph(self, graph_data: NetworkGraphData) -> str:
+        """Sets the active graph and stores it in the graph store."""
+        self.graphs[graph_data.graph_id] = graph_data
+        self._active_graph_id = graph_data.graph_id
+        return graph_data.graph_id
 
     def add_synthetic_graph(self, graph_data: NetworkGraphData) -> str:
         """Stores a newly generated synthetic graph in the repository."""
         self.graphs[graph_data.graph_id] = graph_data
+        self._active_graph_id = graph_data.graph_id
         return graph_data.graph_id
 
     def get_graph_detail(self, graph_id: str) -> Optional[GraphDetailResponse]:
