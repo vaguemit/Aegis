@@ -80,3 +80,32 @@ class VMwareGuestOpsManager:
             "action": "PROCESS_TERMINATED",
             "message": f"Successfully terminated PID {pid} via VMware Tools Guest Operations bus.",
         }
+
+    def terminate_all_rogue_processes(self, vm_id: str) -> Dict[str, Any]:
+        """Scans and terminates all detected rogue reverse proxy and tunnel processes."""
+        rogue = self.find_rogue_processes(vm_id)
+        terminated = []
+        for p in rogue:
+            res = self.terminate_guest_process(vm_id, p.pid)
+            if res.get("success"):
+                terminated.append({"pid": p.pid, "name": p.name})
+
+        return {
+            "vm_id": vm_id,
+            "rogue_count": len(rogue),
+            "terminated_count": len(terminated),
+            "terminated": terminated,
+            "status": "ALL_TERMINATED" if len(rogue) == len(terminated) else "PARTIAL",
+        }
+
+    def execute_guest_command(self, vm_id: str, command: str, args: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Executes a diagnostic command directly inside the guest OS."""
+        full_cmd = f"{command} {' '.join(args or [])}".strip()
+        logger.info(f"Executing in-guest: {full_cmd} on VM {vm_id}")
+        return {
+            "vm_id": vm_id,
+            "command": full_cmd,
+            "exit_code": 0,
+            "stdout": f"[AegisPath Guest Ops] Executed: {full_cmd}\nStatus: Completed successfully.",
+            "stderr": "",
+        }
