@@ -1,0 +1,46 @@
+# ==============================================================================
+# AegisPath - VMware vSphere & Hypervisor Active Defense Configuration
+# ==============================================================================
+
+vmware:
+  # Connection parameters
+  host: "vcenter.corp.internal"
+  port: 443
+  username: "administrator@vsphere.local"
+  password: "VMwareSecretPass!2026"
+  verify_ssl: false
+  datacenter: "Datacenter-Core"
+  cluster: "Cluster-Production"
+  connection_timeout_seconds: 15
+
+  # Emulation and offline testing
+  enable_emulation_fallback: true
+
+  # Active defense and quarantine policies
+  quarantine_portgroup: "Quarantine_VLAN_999"
+  quarantine_vlan: 999
+  emergency_power_off_enabled: true
+  auto_snapshot_before_quarantine: true
+  dump_ram_memory: true
+
+  # Outsider and rogue node detection
+  rogue_detection:
+    anomaly_threshold: 0.65
+    flag_unjoined_vms: true
+    flag_offensive_security_distros: true
+    flag_promiscuous_portgroups: true
+    flag_dual_homed_bridges: true
+    monitored_tunnel_binaries:
+      - "chisel"
+      - "chisel.exe"
+      - "ligolo-ng.exe"
+      - "cloudflared.exe"
+      - "plink.exe"
+      - "nc.exe"
+      - "socat"
+
+  # Telemetry and SIEM logging
+  syslog:
+    enabled: true
+    format: "RFC5424"
+    buffer_size: 100
