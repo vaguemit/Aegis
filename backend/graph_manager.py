@@ -119,7 +119,16 @@ class BackendGraphManager:
 
     def _init_default_graphs(self):
         """Loads curated enterprise demo environments first, followed by research benchmark graphs."""
-        # 1. Synthesize curated realistic department enterprise topologies FIRST
+        # 0. Load realistic enterprise Active Directory BloodHound graph FIRST
+        try:
+            from src.data.bloodhound_loader import create_realistic_enterprise_ad_sample
+            g_bh = create_realistic_enterprise_ad_sample()
+            self.graphs[g_bh.graph_id] = g_bh
+            self._active_graph_id = g_bh.graph_id
+        except Exception as e:
+            print(f"[!] Warning loading BloodHound AD sample: {e}")
+
+        # 1. Synthesize curated realistic department enterprise topologies
         gen_corp = SyntheticEnterpriseGenerator(
             num_computers=24, num_servers=6, num_users=30, num_ous=4, seed=42
         )

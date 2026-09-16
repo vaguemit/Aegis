@@ -56,3 +56,35 @@ def generate_synthetic_graph(req: SyntheticGenerateRequest):
     detail = graph_manager.get_graph_detail(graph_data.graph_id)
     return detail
 
+
+@router.post("/bloodhound/load-sample", response_model=GraphDetailResponse)
+def load_bloodhound_sample_graph():
+    """Loads a realistic multi-tier Active Directory security graph matching SharpHound outputs."""
+    from src.data.bloodhound_loader import create_realistic_enterprise_ad_sample
+    graph_data = create_realistic_enterprise_ad_sample()
+    graph_manager.set_graph(graph_data)
+    detail = graph_manager.get_graph_detail(graph_data.graph_id)
+    if detail is None:
+        raise HTTPException(status_code=500, detail="Failed to serialize BloodHound graph.")
+    return detail
+
+
+@router.post("/bloodhound/ingest", response_model=GraphDetailResponse)
+def ingest_bloodhound_json(data: dict):
+    """
+    Ingests raw BloodHound JSON export data (computers, users, groups, relations)
+    and converts it into an active AegisPath GAT graph.
+    """
+    from src.data.bloodhound_loader import BloodHoundLoader
+    loader = BloodHoundLoader()
+    try:
+        loader.ingest_json_dict(data)
+        graph_data = loader.build_graph(scenario_name="custom_bloodhound_ingest")
+        graph_manager.set_graph(graph_data)
+        detail = graph_manager.get_graph_detail(graph_data.graph_id)
+        if detail is None:
+            raise HTTPException(status_code=500, detail="Failed to serialize ingested graph.")
+        return detail
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"BloodHound ingestion error: {str(e)}")
+
