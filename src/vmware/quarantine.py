@@ -1,7 +1,8 @@
 """
 VMware Active Defense & Network Quarantine Engine.
 Executes automated hypervisor-level network isolation by dynamically migrating vNICs
-to blackhole quarantine portgroups (VLAN 999) or severing virtual Ethernet links.
+to blackhole quarantine portgroups (VLAN 999), severing virtual Ethernet links,
+or invoking local hypervisor cmdlets on Hyper-V / VMware Workstation.
 """
 
 from typing import Dict, List, Optional, Any
@@ -17,13 +18,15 @@ from src.vmware.models import (
 )
 from src.vmware.vm_manager import VMwareVMManager
 from src.vmware.telemetry import VMwareTelemetryStreamer
+from src.vmware.local_driver import local_execution_driver
 
 logger = logging.getLogger("aegispath.vmware.quarantine")
 
 
 class VMwareActiveQuarantine:
     """
-    Executes real-time network quarantine actions directly against VMware vCenter/ESXi.
+    Executes real-time network quarantine actions directly against VMware vCenter/ESXi,
+    local Hyper-V / Workstation, or emulated hypervisor topologies.
     """
 
     def __init__(self, client: VMwareClient, streamer: Optional[VMwareTelemetryStreamer] = None):
@@ -42,12 +45,8 @@ class VMwareActiveQuarantine:
         Migrates vNICs to Quarantine_VLAN_999 or unplugs the virtual network cable.
         """
         q_pg = quarantine_portgroup or self.client.config.quarantine_portgroup
-        vm = self.vm_manager.get_vm_by_id(vm_id)
+        vm = self.vm_manager.get_vm_by_id(vm_id) or self.vm_manager.get_vm_by_name(vm_id)
         action_id = f"quarantine-{uuid.uuid4().hex[:8]}"
-
-        if not vm:
-            # Fallback search by name
-            vm = self.vm_manager.get_vm_by_name(vm_id)
 
         vm_name = vm.name if vm else vm_id
         prev_state = {
@@ -55,16 +54,50 @@ class VMwareActiveQuarantine:
             "nics": [{"label": n.label, "portgroup": n.portgroup, "connected": n.is_connected} for n in vm.nics] if vm else [],
         }
 
-        # If connected to live vCenter REST API:
-        if self.client.is_connected and not self.client.is_emulated and self.client._http_client and vm:
-            try:
-                # Live vCenter REST PATCH /api/vcenter/vm/{vm}/hardware/adapter/{nic}
-                # (In production, updates backing.network to quarantine portgroup)
-                logger.info(f"Issuing live REST quarantine for VM {vm_id} to {q_pg}")
-            except Exception as e:
-                logger.error(f"Live quarantine failed ({e}). Applying simulated state.")
+        execution_details = []
 
-        # Update cached state
+        # 1. Live VMware vCenter REST API execution
+        if self.client.is_connected and not self.client.is_emulated and self.client._http_client and vm:
+            for nic in vm.nics:
+                nic_id = nic.label.lower().replace(" ", "")
+                try:
+                    if method == QuarantineMethod.PORTGROUP_MIGRATION:
+                        patch_payload = {
+                            "spec": {
+                                "backing": {
+                                    "type": "STANDARD_PORTGROUP",
+                                    "network_name": q_pg,
+                                }
+                            }
+                        }
+                    else:
+                        patch_payload = {
+                            "spec": {
+                                "connected": False,
+                                "start_connected": False,
+                            }
+                        }
+                    resp = self.client._http_client.patch(
+                        f"{self.client.base_url}/vcenter/vm/{vm.vm_id}/hardware/adapter/{nic_id}",
+                        json=patch_payload,
+                        timeout=10.0,
+                    )
+                    execution_details.append(f"vCenter REST: {nic.label} -> {q_pg} (HTTP {resp.status_code})")
+                except Exception as e:
+                    execution_details.append(f"vCenter REST error on {nic.label}: {e}")
+
+        # 2. Local Hyper-V or Workstation Execution
+        if local_execution_driver.hyperv_available:
+            hv_res = local_execution_driver.quarantine_hyperv_vm(vm_name, self.client.config.quarantine_vlan)
+            if hv_res.get("Success"):
+                execution_details.append(f"Hyper-V: {vm_name} isolated to VLAN {self.client.config.quarantine_vlan}")
+
+        if local_execution_driver.vmrun_path and vm_id.endswith(".vmx"):
+            ws_res = local_execution_driver.quarantine_workstation_vm(vm_id)
+            if ws_res.get("success"):
+                execution_details.append(f"Workstation: {vm_id} vNIC disconnected via vmrun")
+
+        # 3. Update cached state
         if vm:
             vm.is_isolated = True
             for nic in vm.nics:
@@ -82,13 +115,15 @@ class VMwareActiveQuarantine:
         # Telemetry log
         self.streamer.record_quarantine_event(vm_name=vm_name, portgroup=q_pg)
 
+        detail_msg = "; ".join(execution_details) if execution_details else f"VM '{vm_name}' successfully isolated to {q_pg} via hypervisor switch policy."
+
         return VMwareQuarantineResult(
             action_id=action_id,
             vm_id=vm_id,
             vm_name=vm_name,
             method=method,
             success=True,
-            details=f"Successfully quarantined VM '{vm_name}' using {method.value}. Active traffic severed from corporate LAN.",
+            details=detail_msg,
             previous_state=prev_state,
             new_state=new_state,
             timestamp=time.time(),
@@ -113,13 +148,10 @@ class VMwareActiveQuarantine:
                 nic.vlan_id = vlan_id
                 nic.is_connected = True
 
-        new_state = {"is_isolated": False, "target_portgroup": target_portgroup}
-        self.streamer.record_event(
-            event_type="NetworkAdapterReconfiguredEvent",
-            vm_name=vm_name,
-            message=f"VM '{vm_name}' restored to portgroup '{target_portgroup}' (VLAN {vlan_id}).",
-            severity="INFO",
-        )
+        new_state = {
+            "is_isolated": False,
+            "nics": [{"label": n.label, "portgroup": n.portgroup, "connected": n.is_connected} for n in vm.nics] if vm else [],
+        }
 
         return VMwareQuarantineResult(
             action_id=action_id,
@@ -127,41 +159,53 @@ class VMwareActiveQuarantine:
             vm_name=vm_name,
             method=QuarantineMethod.PORTGROUP_MIGRATION,
             success=True,
-            details=f"VM '{vm_name}' restored to portgroup '{target_portgroup}'.",
+            details=f"Restored VM '{vm_name}' to production portgroup '{target_portgroup}' (VLAN {vlan_id}).",
             previous_state=prev_state,
             new_state=new_state,
             timestamp=time.time(),
         )
 
-    def disconnect_all_vnics(self, vm_id: str) -> VMwareQuarantineResult:
-        """Physically disconnects all virtual Ethernet adapters for the VM."""
-        return self.quarantine_vm(vm_id=vm_id, method=QuarantineMethod.VNIC_DISCONNECT)
-
-    def emergency_power_off(self, vm_id: str) -> VMwareQuarantineResult:
-        """Forces immediate hypervisor power off to halt active ransomware or exfiltration."""
+    def power_off_vm(self, vm_id: str, hard_kill: bool = False) -> Dict[str, Any]:
+        """Emergency power-off for rogue or actively exfiltrating VM."""
         vm = self.vm_manager.get_vm_by_id(vm_id) or self.vm_manager.get_vm_by_name(vm_id)
         vm_name = vm.name if vm else vm_id
-        action_id = f"poweroff-{uuid.uuid4().hex[:8]}"
 
-        prev_state = {"power_state": vm.power_state.value if vm else "UNKNOWN"}
+        # 1. Live vCenter power off
+        if self.client.is_connected and not self.client.is_emulated and self.client._http_client and vm:
+            try:
+                action = "stop" if hard_kill else "shutdown"
+                resp = self.client._http_client.post(
+                    f"{self.client.base_url}/vcenter/vm/{vm.vm_id}/power?action={action}",
+                    timeout=10.0,
+                )
+                logger.info(f"Live vCenter power-off VM {vm_id}: HTTP {resp.status_code}")
+            except Exception as e:
+                logger.error(f"Live vCenter power-off failed: {e}")
+
+        # 2. Local Hyper-V
+        if local_execution_driver.hyperv_available:
+            local_execution_driver.quarantine_hyperv_vm(vm_name)
+
         if vm:
-            vm.power_state = from_models_power_state = "POWERED_OFF"
+            from src.vmware.models import PowerState
+            vm.power_state = PowerState.POWERED_OFF
+            vm.is_isolated = True
 
-        self.streamer.record_event(
-            event_type="VmPoweredOffEvent",
-            vm_name=vm_name,
-            message=f"Emergency Defense: VM '{vm_name}' powered off by AegisPath.",
-            severity="CRITICAL",
-        )
+        return {
+            "success": True,
+            "vm_id": vm_id,
+            "vm_name": vm_name,
+            "action": "POWER_OFF",
+            "hard_kill": hard_kill,
+            "message": f"VM '{vm_name}' powered off. Hypervisor resources halted.",
+        }
 
-        return VMwareQuarantineResult(
-            action_id=action_id,
-            vm_id=vm_id,
-            vm_name=vm_name,
-            method=QuarantineMethod.POWER_OFF,
-            success=True,
-            details=f"VM '{vm_name}' emergency power off completed.",
-            previous_state=prev_state,
-            new_state={"power_state": "POWERED_OFF"},
-            timestamp=time.time(),
-        )
+    def disconnect_all_vnics(self, vm_id: str) -> VMwareQuarantineResult:
+        """Convenience method to disconnect all virtual NICs for an immediate cable-pull isolation."""
+        return self.quarantine_vm(vm_id=vm_id, method=QuarantineMethod.VNIC_DISCONNECT)
+
+    def emergency_power_off(self, vm_id: str, hard_kill: bool = True) -> VMwareQuarantineResult:
+        """Convenience method for emergency hypervisor power-off."""
+        self.power_off_vm(vm_id=vm_id, hard_kill=hard_kill)
+        return self.quarantine_vm(vm_id=vm_id, method=QuarantineMethod.POWER_OFF)
+

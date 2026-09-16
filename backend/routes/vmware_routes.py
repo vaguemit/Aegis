@@ -271,3 +271,51 @@ def sync_vmware_graph() -> Dict[str, Any]:
 def get_events(limit: int = Query(25, ge=1, le=100)) -> List[Dict[str, Any]]:
     """Retrieves live hypervisor audit and Syslog events."""
     return vmware_streamer.get_recent_events(limit=limit)
+
+
+@router.get("/driver/status")
+def get_local_driver_status() -> Dict[str, Any]:
+    """Returns local operating system, Hyper-V, and VMware Workstation driver capabilities."""
+    from src.vmware.local_driver import local_execution_driver
+    return local_execution_driver.get_status()
+
+
+@router.get("/driver/host-processes")
+def list_host_processes(rogue_only: bool = False) -> Dict[str, Any]:
+    """Enumerates actual running processes on the host machine using native OS APIs."""
+    from src.vmware.local_driver import local_execution_driver
+    if rogue_only:
+        procs = local_execution_driver.scan_for_rogue_processes()
+    else:
+        procs = local_execution_driver.list_running_processes()
+    return {
+        "total": len(procs),
+        "rogue_only": rogue_only,
+        "processes": procs[:150],  # Return up to 150
+    }
+
+
+@router.post("/driver/terminate-host-process")
+def terminate_host_process(pid: int = Query(..., description="Process ID to terminate")) -> Dict[str, Any]:
+    """Forcefully terminates a real process on the host machine via native taskkill."""
+    from src.vmware.local_driver import local_execution_driver
+    return local_execution_driver.terminate_process(pid)
+
+
+@router.get("/driver/hyperv-vms")
+def list_hyperv_vms() -> Dict[str, Any]:
+    """Enumerates real virtual machines hosted on local Windows Hyper-V."""
+    from src.vmware.local_driver import local_execution_driver
+    vms = local_execution_driver.list_hyperv_vms()
+    return {
+        "hyperv_available": local_execution_driver.hyperv_available,
+        "total_vms": len(vms),
+        "vms": vms,
+    }
+
+
+@router.post("/driver/hyperv-quarantine")
+def quarantine_hyperv_vm(vm_name: str = Query(...), vlan_id: int = 999) -> Dict[str, Any]:
+    """Isolates a real Hyper-V VM to VLAN 999 or disconnects its vNIC."""
+    from src.vmware.local_driver import local_execution_driver
+    return local_execution_driver.quarantine_hyperv_vm(vm_name=vm_name, vlan_id=vlan_id)
