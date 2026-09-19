@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Server, HardDrive, Cpu, ShieldAlert, CheckCircle2, AlertTriangle, Network, X, RefreshCw, Zap, Camera, Skull, Activity, ShieldCheck } from 'lucide-react';
+import { Server, HardDrive, Cpu, ShieldAlert, CheckCircle2, AlertTriangle, Network, X, RefreshCw, Zap, Camera, Skull, Activity, ShieldCheck, Terminal, Flame, Laptop } from 'lucide-react';
 
 export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
-  const [activeTab, setActiveTab] = useState('VMWARE_LIVE'); // 'VMWARE_LIVE' or 'CLUSTER_SIM'
+  const [activeTab, setActiveTab] = useState('VMWARE_LIVE'); // 'VMWARE_LIVE' | 'LOCAL_HOST_HYPERV' | 'CLUSTER_SIM'
   const [vmData, setVmData] = useState(null);
   const [vmwareStatus, setVmwareStatus] = useState(null);
   const [vmwareInventory, setVmwareInventory] = useState(null);
@@ -11,6 +11,12 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
   const [actionLoading, setActionLoading] = useState(null);
   const [actionFeedback, setActionFeedback] = useState(null);
   const [filter, setFilter] = useState('ALL');
+
+  // Local Driver State
+  const [driverStatus, setDriverStatus] = useState(null);
+  const [hostProcesses, setHostProcesses] = useState([]);
+  const [rogueOnly, setRogueOnly] = useState(false);
+  const [hypervVms, setHypervVms] = useState([]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -25,6 +31,9 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
 
     // Fetch VMware Live data
     fetchVmwareState();
+
+    // Fetch Local Driver data
+    fetchLocalDriverState();
   }, [isOpen, graphId]);
 
   const fetchVmwareState = () => {
@@ -48,6 +57,29 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
       .then(data => setTelemetryEvents(data))
       .catch(err => console.error(err));
   };
+
+  const fetchLocalDriverState = () => {
+    fetch('/api/vmware/driver/status')
+      .then(res => res.json())
+      .then(data => setDriverStatus(data))
+      .catch(err => console.error(err));
+
+    fetch(`/api/vmware/driver/host-processes?rogue_only=${rogueOnly}`)
+      .then(res => res.json())
+      .then(data => setHostProcesses(data.processes || []))
+      .catch(err => console.error(err));
+
+    fetch('/api/vmware/driver/hyperv-vms')
+      .then(res => res.json())
+      .then(data => setHypervVms(data.vms || []))
+      .catch(err => console.error(err));
+  };
+
+  useEffect(() => {
+    if (activeTab === 'LOCAL_HOST_HYPERV') {
+      fetchLocalDriverState();
+    }
+  }, [rogueOnly, activeTab]);
 
   const handleQuarantine = async (vmId) => {
     setActionLoading(`quarantine-${vmId}`);
@@ -103,6 +135,38 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
     }
   };
 
+  const handleKillHostProcess = async (pid, procName) => {
+    setActionLoading(`killhost-${pid}`);
+    try {
+      const res = await fetch(`/api/vmware/driver/terminate-host-process?pid=${pid}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setActionFeedback(`[NATIVE DRIVER] Successfully terminated ${procName} (PID ${pid}) via taskkill`);
+        fetchLocalDriverState();
+      } else {
+        setActionFeedback(`[NATIVE DRIVER] Failed to kill PID ${pid}: ${data.details || 'Access Denied'}`);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleHyperVQuarantine = async (vmName) => {
+    setActionLoading(`quarantine-hv-${vmName}`);
+    try {
+      const res = await fetch(`/api/vmware/driver/hyperv-quarantine?vm_name=${encodeURIComponent(vmName)}&vlan_id=999`, { method: 'POST' });
+      const data = await res.json();
+      setActionFeedback(`[HYPER-V] Isolated VM ${vmName} to VLAN 999`);
+      fetchLocalDriverState();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleSyncGraph = async () => {
     setActionLoading('sync-graph');
     try {
@@ -143,7 +207,7 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
         className="glass-panel"
         style={{
           width: '100%',
-          maxWidth: '1080px',
+          maxWidth: '1100px',
           maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
@@ -151,6 +215,7 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
           background: '#09090D',
           border: '1px solid #2B2B38',
           boxShadow: '0 30px 80px rgba(0,0,0,0.98)',
+          borderRadius: '12px',
         }}
       >
         {/* Header */}
@@ -162,14 +227,14 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <h2 style={{ fontSize: '1.2rem', fontWeight: '700', color: '#FFFFFF' }}>
-                  Enterprise VMware vSphere & Hypervisor Command Center
+                  Enterprise Hypervisor & Host Active Defense Command Center
                 </h2>
                 <span className="badge badge-emerald" style={{ fontSize: '0.68rem' }}>
-                  ESXi 8.0 Live
+                  {activeTab === 'LOCAL_HOST_HYPERV' ? 'Native Windows Driver' : 'ESXi 8.0 Live'}
                 </span>
               </div>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                Real-world hypervisor telemetry, outsider detection, forensic memory capture & active network quarantine
+                Real-world hypervisor telemetry, outsider detection, forensic memory capture & native OS process termination
               </span>
             </div>
           </div>
@@ -207,6 +272,25 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
             Live vSphere Operations & Outsider Defense
           </button>
           <button
+            onClick={() => setActiveTab('LOCAL_HOST_HYPERV')}
+            style={{
+              padding: '12px 18px',
+              fontSize: '0.82rem',
+              fontWeight: '600',
+              background: 'transparent',
+              border: 'none',
+              borderBottom: activeTab === 'LOCAL_HOST_HYPERV' ? '2px solid #10B981' : '2px solid transparent',
+              color: activeTab === 'LOCAL_HOST_HYPERV' ? '#10B981' : 'var(--text-muted)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <Laptop size={16} />
+            Local Host & Hyper-V (Native Driver)
+          </button>
+          <button
             onClick={() => setActiveTab('CLUSTER_SIM')}
             style={{
               padding: '12px 18px',
@@ -237,7 +321,7 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
 
         {/* Main Content Area */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
-          {activeTab === 'VMWARE_LIVE' ? (
+          {activeTab === 'VMWARE_LIVE' && (
             <div>
               {/* ESXi Bare-Metal Cluster Cards */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '20px' }}>
@@ -428,8 +512,122 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
                 </div>
               </div>
             </div>
-          ) : (
-            /* Simulation View */
+          )}
+
+          {/* TAB 2: LOCAL HOST & HYPER-V (NATIVE DRIVER) */}
+          {activeTab === 'LOCAL_HOST_HYPERV' && (
+            <div>
+              {/* Native Subsystem Status Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '20px' }}>
+                <div style={{ padding: '14px', background: '#12121A', borderRadius: '8px', border: '1px solid #232332' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Host Operating System</div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: '700', color: '#FFFFFF', marginTop: '2px' }}>
+                    Windows 11 x64 Native
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#10B981', marginTop: '4px' }}>
+                    Process Kill: Taskkill /F Active
+                  </div>
+                </div>
+
+                <div style={{ padding: '14px', background: '#12121A', borderRadius: '8px', border: '1px solid #232332' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Hyper-V Host Compute</div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: '700', color: '#FFFFFF', marginTop: '2px' }}>
+                    {driverStatus?.hyperv_available ? 'Available (vmcompute)' : 'Standby Mode'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#38BDF8', marginTop: '4px' }}>
+                    {hypervVms.length} Local Virtual Machines
+                  </div>
+                </div>
+
+                <div style={{ padding: '14px', background: '#12121A', borderRadius: '8px', border: '1px solid #232332' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>VMware Workstation CLI</div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: '700', color: '#FFFFFF', marginTop: '2px' }}>
+                    {driverStatus?.vmware_workstation_available ? 'Detected (vmrun.exe)' : 'Not Installed'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: '4px' }}>
+                    {driverStatus?.vmrun_path || 'Direct REST / OS fallback'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Host Process Table */}
+              <div style={{ background: '#101017', borderRadius: '8px', border: '1px solid #1E1E28', padding: '16px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '0.92rem', fontWeight: '700', color: '#FFFFFF' }}>
+                      Real Windows Process Monitor & Active Kill
+                    </h3>
+                    <span style={{ fontSize: '0.73rem', color: 'var(--text-secondary)' }}>
+                      Enumerating live processes directly via native Win32 APIs • Immediate taskkill execution
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button
+                      className={`btn-cyber ${rogueOnly ? 'btn-primary' : 'btn-outline'}`}
+                      onClick={() => setRogueOnly(!rogueOnly)}
+                      style={{ fontSize: '0.75rem', padding: '6px 12px', background: rogueOnly ? '#EF4444' : 'transparent', border: rogueOnly ? 'none' : '1px solid #333345' }}
+                    >
+                      <Skull size={14} style={{ marginRight: '4px' }} />
+                      {rogueOnly ? 'Filtering: Rogue Only' : 'Scan for Rogue Tunnels'}
+                    </button>
+                    <button className="btn-cyber btn-outline" onClick={fetchLocalDriverState} style={{ padding: '6px 10px' }}>
+                      <RefreshCw size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #222230', textAlign: 'left', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '8px' }}>PID</th>
+                      <th style={{ padding: '8px' }}>Process Name</th>
+                      <th style={{ padding: '8px' }}>Session</th>
+                      <th style={{ padding: '8px' }}>Memory</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Forceful Kill</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {hostProcesses.slice(0, 50).map((p, idx) => {
+                      const isRogueName = ['chisel', 'ligolo', 'plink', 'nc', 'ncat', 'socat'].some(r => p.name.toLowerCase().includes(r));
+                      return (
+                        <tr key={idx} style={{ borderBottom: '1px solid #161622', background: isRogueName ? 'rgba(239, 68, 68, 0.08)' : 'transparent' }}>
+                          <td style={{ padding: '8px', fontFamily: 'var(--font-mono)', color: '#38BDF8' }}>{p.pid}</td>
+                          <td style={{ padding: '8px', fontWeight: '600', color: isRogueName ? '#F87171' : '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {p.name}
+                            {isRogueName && <span className="badge badge-rose" style={{ fontSize: '0.62rem' }}>SUSPICIOUS</span>}
+                          </td>
+                          <td style={{ padding: '8px', color: '#94A3B8' }}>{p.session || 'Console'}</td>
+                          <td style={{ padding: '8px', fontFamily: 'var(--font-mono)' }}>{p.mem_usage || 'N/A'}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>
+                            <button
+                              className="btn-cyber"
+                              onClick={() => handleKillHostProcess(p.pid, p.name)}
+                              disabled={actionLoading === `killhost-${p.pid}` || p.pid === 0 || p.pid === 4}
+                              style={{
+                                padding: '4px 10px',
+                                fontSize: '0.68rem',
+                                background: isRogueName ? '#EF4444' : '#2A2A38',
+                                color: '#FFFFFF',
+                                border: 'none',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <Flame size={12} style={{ marginRight: '3px' }} />
+                              Kill Process
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: SIMULATION MAPPING VIEW */}
+          {activeTab === 'CLUSTER_SIM' && (
             <div>
               <div style={{ padding: '10px 0', display: 'flex', gap: '8px', marginBottom: '14px' }}>
                 <button
