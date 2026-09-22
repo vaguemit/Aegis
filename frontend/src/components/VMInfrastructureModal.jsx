@@ -589,7 +589,8 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
                   </thead>
                   <tbody>
                     {hostProcesses.slice(0, 50).map((p, idx) => {
-                      const isRogueName = ['chisel', 'ligolo', 'plink', 'nc', 'ncat', 'socat'].some(r => p.name.toLowerCase().includes(r));
+                      const cleanName = (p.name || '').toLowerCase().replace(/\.exe$/, '');
+                      const isRogueName = ['chisel', 'ligolo', 'plink', 'socat', 'ncat'].some(r => cleanName.includes(r)) || cleanName === 'nc' || cleanName.startsWith('nc-') || cleanName.startsWith('nc64') || cleanName.startsWith('nc32');
                       return (
                         <tr key={idx} style={{ borderBottom: '1px solid #161622', background: isRogueName ? 'rgba(239, 68, 68, 0.08)' : 'transparent' }}>
                           <td style={{ padding: '8px', fontFamily: 'var(--font-mono)', color: '#38BDF8' }}>{p.pid}</td>
