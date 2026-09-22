@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Server, HardDrive, Cpu, ShieldAlert, CheckCircle2, AlertTriangle, Network, X, RefreshCw, Zap, Camera, Skull, Activity, ShieldCheck, Terminal, Flame, Laptop } from 'lucide-react';
+import { Server, HardDrive, Cpu, ShieldAlert, CheckCircle2, AlertTriangle, Network, X, RefreshCw, Zap, Camera, Skull, Activity, ShieldCheck, Terminal, Flame, Laptop, Search } from 'lucide-react';
 
 export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
   const [activeTab, setActiveTab] = useState('VMWARE_LIVE'); // 'VMWARE_LIVE' | 'LOCAL_HOST_HYPERV' | 'CLUSTER_SIM'
@@ -16,6 +16,7 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
   const [driverStatus, setDriverStatus] = useState(null);
   const [hostProcesses, setHostProcesses] = useState([]);
   const [rogueOnly, setRogueOnly] = useState(false);
+  const [hostSearchQuery, setHostSearchQuery] = useState('');
   const [hypervVms, setHypervVms] = useState([]);
 
   useEffect(() => {
@@ -64,7 +65,7 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
       .then(data => setDriverStatus(data))
       .catch(err => console.error(err));
 
-    fetch(`/api/vmware/driver/host-processes?rogue_only=${rogueOnly}`)
+    fetch(`/api/vmware/driver/host-processes?rogue_only=${rogueOnly}&limit=500`)
       .then(res => res.json())
       .then(data => setHostProcesses(data.processes || []))
       .catch(err => console.error(err));
@@ -563,6 +564,25 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
                   </div>
 
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ position: 'relative', width: '220px' }}>
+                      <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748B' }} />
+                      <input
+                        type="text"
+                        placeholder="Search name or PID..."
+                        value={hostSearchQuery}
+                        onChange={e => setHostSearchQuery(e.target.value)}
+                        style={{
+                          width: '100%',
+                          background: '#161622',
+                          border: '1px solid #2B2B3C',
+                          borderRadius: '6px',
+                          padding: '6px 10px 6px 30px',
+                          fontSize: '0.74rem',
+                          color: '#FFFFFF',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
                     <button
                       className={`btn-cyber ${rogueOnly ? 'btn-primary' : 'btn-outline'}`}
                       onClick={() => setRogueOnly(!rogueOnly)}
@@ -577,52 +597,80 @@ export default function VMInfrastructureModal({ isOpen, onClose, graphId }) {
                   </div>
                 </div>
 
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #222230', textAlign: 'left', color: 'var(--text-muted)' }}>
-                      <th style={{ padding: '8px' }}>PID</th>
-                      <th style={{ padding: '8px' }}>Process Name</th>
-                      <th style={{ padding: '8px' }}>Session</th>
-                      <th style={{ padding: '8px' }}>Memory</th>
-                      <th style={{ padding: '8px', textAlign: 'right' }}>Forceful Kill</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hostProcesses.slice(0, 50).map((p, idx) => {
-                      const cleanName = (p.name || '').toLowerCase().replace(/\.exe$/, '');
-                      const isRogueName = ['chisel', 'ligolo', 'plink', 'socat', 'ncat'].some(r => cleanName.includes(r)) || cleanName === 'nc' || cleanName.startsWith('nc-') || cleanName.startsWith('nc64') || cleanName.startsWith('nc32');
-                      return (
-                        <tr key={idx} style={{ borderBottom: '1px solid #161622', background: isRogueName ? 'rgba(239, 68, 68, 0.08)' : 'transparent' }}>
-                          <td style={{ padding: '8px', fontFamily: 'var(--font-mono)', color: '#38BDF8' }}>{p.pid}</td>
-                          <td style={{ padding: '8px', fontWeight: '600', color: isRogueName ? '#F87171' : '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {p.name}
-                            {isRogueName && <span className="badge badge-rose" style={{ fontSize: '0.62rem' }}>SUSPICIOUS</span>}
-                          </td>
-                          <td style={{ padding: '8px', color: '#94A3B8' }}>{p.session || 'Console'}</td>
-                          <td style={{ padding: '8px', fontFamily: 'var(--font-mono)' }}>{p.mem_usage || 'N/A'}</td>
-                          <td style={{ padding: '8px', textAlign: 'right' }}>
-                            <button
-                              className="btn-cyber"
-                              onClick={() => handleKillHostProcess(p.pid, p.name)}
-                              disabled={actionLoading === `killhost-${p.pid}` || p.pid === 0 || p.pid === 4}
-                              style={{
-                                padding: '4px 10px',
-                                fontSize: '0.68rem',
-                                background: isRogueName ? '#EF4444' : '#2A2A38',
-                                color: '#FFFFFF',
-                                border: 'none',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              <Flame size={12} style={{ marginRight: '3px' }} />
-                              Kill Process
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', fontSize: '0.72rem', color: '#94A3B8' }}>
+                  <span>
+                    Showing {
+                      hostProcesses.filter(p => {
+                        if (!hostSearchQuery.trim()) return true;
+                        const q = hostSearchQuery.toLowerCase().trim();
+                        return (p.name || '').toLowerCase().includes(q) || String(p.pid).includes(q);
+                      }).length
+                    } of {hostProcesses.length} processes
+                  </span>
+                  {hostSearchQuery && (
+                    <button
+                      onClick={() => setHostSearchQuery('')}
+                      style={{ background: 'transparent', border: 'none', color: '#38BDF8', cursor: 'pointer', fontSize: '0.72rem' }}
+                    >
+                      Clear search
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ maxHeight: '440px', overflowY: 'auto', border: '1px solid #1E1E2C', borderRadius: '6px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.76rem' }}>
+                    <thead style={{ position: 'sticky', top: 0, background: '#12121B', zIndex: 2 }}>
+                      <tr style={{ borderBottom: '1px solid #222230', textAlign: 'left', color: 'var(--text-muted)' }}>
+                        <th style={{ padding: '8px' }}>PID</th>
+                        <th style={{ padding: '8px' }}>Process Name</th>
+                        <th style={{ padding: '8px' }}>Session</th>
+                        <th style={{ padding: '8px' }}>Memory</th>
+                        <th style={{ padding: '8px', textAlign: 'right' }}>Forceful Kill</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {hostProcesses
+                        .filter(p => {
+                          if (!hostSearchQuery.trim()) return true;
+                          const q = hostSearchQuery.toLowerCase().trim();
+                          return (p.name || '').toLowerCase().includes(q) || String(p.pid).includes(q);
+                        })
+                        .map((p, idx) => {
+                          const cleanName = (p.name || '').toLowerCase().replace(/\.exe$/, '');
+                          const isRogueName = ['chisel', 'ligolo', 'plink', 'socat', 'ncat'].some(r => cleanName.includes(r)) || cleanName === 'nc' || cleanName.startsWith('nc-') || cleanName.startsWith('nc64') || cleanName.startsWith('nc32');
+                          return (
+                            <tr key={idx} style={{ borderBottom: '1px solid #161622', background: isRogueName ? 'rgba(239, 68, 68, 0.08)' : 'transparent' }}>
+                              <td style={{ padding: '8px', fontFamily: 'var(--font-mono)', color: '#38BDF8' }}>{p.pid}</td>
+                              <td style={{ padding: '8px', fontWeight: '600', color: isRogueName ? '#F87171' : '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {p.name}
+                                {isRogueName && <span className="badge badge-rose" style={{ fontSize: '0.62rem' }}>SUSPICIOUS</span>}
+                              </td>
+                              <td style={{ padding: '8px', color: '#94A3B8' }}>{p.session || 'Console'}</td>
+                              <td style={{ padding: '8px', fontFamily: 'var(--font-mono)' }}>{p.mem_usage || 'N/A'}</td>
+                              <td style={{ padding: '8px', textAlign: 'right' }}>
+                                <button
+                                  className="btn-cyber"
+                                  onClick={() => handleKillHostProcess(p.pid, p.name)}
+                                  disabled={actionLoading === `killhost-${p.pid}` || p.pid === 0 || p.pid === 4}
+                                  style={{
+                                    padding: '4px 10px',
+                                    fontSize: '0.68rem',
+                                    background: isRogueName ? '#EF4444' : '#2A2A38',
+                                    color: '#FFFFFF',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  <Flame size={12} style={{ marginRight: '3px' }} />
+                                  Kill Process
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}

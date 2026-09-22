@@ -282,17 +282,26 @@ def get_local_driver_status() -> Dict[str, Any]:
 
 @router.get("/driver/processes")
 @router.get("/driver/host-processes")
-def list_host_processes(rogue_only: bool = False) -> Dict[str, Any]:
+def list_host_processes(
+    rogue_only: bool = False,
+    search: Optional[str] = None,
+    limit: int = Query(500, ge=1, le=1000),
+) -> Dict[str, Any]:
     """Enumerates actual running processes on the host machine using native OS APIs."""
     from src.vmware.local_driver import local_execution_driver
     if rogue_only:
         procs = local_execution_driver.scan_for_rogue_processes()
     else:
         procs = local_execution_driver.list_running_processes()
+
+    if search:
+        s = search.lower().strip()
+        procs = [p for p in procs if s in (p.get("name") or "").lower() or str(p.get("pid")) == s]
+
     return {
         "total": len(procs),
         "rogue_only": rogue_only,
-        "processes": procs[:150],  # Return up to 150
+        "processes": procs[:limit],
     }
 
 
