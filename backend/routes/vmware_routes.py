@@ -280,6 +280,7 @@ def get_local_driver_status() -> Dict[str, Any]:
     return local_execution_driver.get_status()
 
 
+@router.get("/driver/processes")
 @router.get("/driver/host-processes")
 def list_host_processes(rogue_only: bool = False) -> Dict[str, Any]:
     """Enumerates actual running processes on the host machine using native OS APIs."""
