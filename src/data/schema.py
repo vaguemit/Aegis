@@ -193,11 +193,29 @@ class NetworkGraphData:
             if len(owned_indices) > 0:
                 self.source_idx = int(owned_indices[0].item())
 
+        if self.source_idx is None and self.y_matrix is not None:
+            out_deg = self.y_matrix.sum(dim=-1)
+            in_deg = self.y_matrix.sum(dim=-2)
+            sources = ((out_deg > 0) & (in_deg == 0)).nonzero(as_tuple=True)[0]
+            if len(sources) > 0:
+                self.source_idx = int(sources[0].item())
+            else:
+                any_out = (out_deg > 0).nonzero(as_tuple=True)[0]
+                if len(any_out) > 0:
+                    self.source_idx = int(any_out[0].item())
+
         if self.target_idx is None and self.x_matrix is not None:
             target_col = PROPERTY_TO_IDX[SecurityProperty.TARGET]
             target_indices = (self.x_matrix[:, target_col] > 0.5).nonzero(as_tuple=True)[0]
             if len(target_indices) > 0:
                 self.target_idx = int(target_indices[0].item())
+
+        if self.target_idx is None and self.y_matrix is not None:
+            out_deg = self.y_matrix.sum(dim=-1)
+            in_deg = self.y_matrix.sum(dim=-2)
+            targets = ((out_deg == 0) & (in_deg > 0)).nonzero(as_tuple=True)[0]
+            if len(targets) > 0:
+                self.target_idx = int(targets[0].item())
 
         if self.attack_path_nodes is None and self.y_matrix is not None:
             self.attack_path_nodes = self._extract_path_sequence()

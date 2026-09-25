@@ -45,9 +45,17 @@ class DijkstraShortestPathBaseline:
         else:
             binary_adj = (adj_tensor > 0.5).cpu().numpy()
 
+        num_nodes = binary_adj.shape[0]
+        if source_idx is None:
+            source_idx = 0
+        if target_idx is None:
+            target_idx = num_nodes - 1
+
         G = nx.from_numpy_array(binary_adj, create_using=nx.DiGraph)
         try:
             path = nx.shortest_path(G, source=source_idx, target=target_idx)
+            if isinstance(path, dict):
+                path = list(path.values())[0] if path else [source_idx]
             return path
         except (nx.NetworkXNoPath, nx.NodeNotFound):
             return [source_idx]
@@ -62,6 +70,8 @@ class DijkstraShortestPathBaseline:
         num_nodes = adj_tensor.shape[0]
         prob_matrix = torch.zeros((num_nodes, num_nodes), dtype=torch.float32)
         path = self.predict_path(adj_tensor, source_idx, target_idx)
+        if isinstance(path, dict):
+            path = list(path.values())[0] if path else [source_idx or 0]
         for i in range(len(path) - 1):
             prob_matrix[path[i], path[i + 1]] = 1.0
         return prob_matrix
@@ -87,6 +97,11 @@ class CVSSWeightedShortestPathBaseline:
         target_idx: int,
     ) -> List[int]:
         num_nodes = x_matrix.shape[0]
+        if source_idx is None:
+            source_idx = 0
+        if target_idx is None:
+            target_idx = num_nodes - 1
+
         if adj_tensor.dim() == 3:
             binary_adj = (adj_tensor.sum(dim=-1) > 0.5).cpu().numpy()
         else:
@@ -111,6 +126,8 @@ class CVSSWeightedShortestPathBaseline:
 
         try:
             path = nx.dijkstra_path(G, source=source_idx, target=target_idx, weight="weight")
+            if isinstance(path, dict):
+                path = list(path.values())[0] if path else [source_idx]
             return path
         except (nx.NetworkXNoPath, nx.NodeNotFound):
             return [source_idx]
@@ -125,6 +142,8 @@ class CVSSWeightedShortestPathBaseline:
         num_nodes = x_matrix.shape[0]
         prob_matrix = torch.zeros((num_nodes, num_nodes), dtype=torch.float32)
         path = self.predict_path(adj_tensor, x_matrix, source_idx, target_idx)
+        if isinstance(path, dict):
+            path = list(path.values())[0] if path else [source_idx or 0]
         for i in range(len(path) - 1):
             prob_matrix[path[i], path[i + 1]] = 1.0
         return prob_matrix
@@ -150,6 +169,11 @@ class BiasedRandomWalkBaseline:
         target_idx: int,
     ) -> torch.Tensor:
         num_nodes = x_matrix.shape[0]
+        if source_idx is None:
+            source_idx = 0
+        if target_idx is None:
+            target_idx = num_nodes - 1
+
         if adj_tensor.dim() == 3:
             binary_adj = (adj_tensor.sum(dim=-1) > 0.5).cpu().numpy()
         else:

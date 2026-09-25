@@ -101,10 +101,23 @@ def run_full_benchmark(
 
     # Load benchmark dataset or synthesize if needed
     dataset = PIGNNDataset(data_dir="data/_data_", max_samples=max_samples)
-    if len(dataset) < 10:
+    if len(dataset.file_paths) == 0:
         print("[!] Generating synthetic dataset for benchmarking...")
         gen = SyntheticEnterpriseGenerator(seed=42)
-        dataset = [gen.generate() for _ in range(max_samples)]
+        raw_graphs = [gen.generate() for _ in range(max_samples)]
+
+        class InMemoryGraphDataset(Dataset):
+            def __init__(self, graphs):
+                self.graphs = graphs
+            def __len__(self):
+                return len(self.graphs)
+            def __getitem__(self, idx):
+                g = self.graphs[idx]
+                return g.adj_tensor, g.x_matrix, g.y_matrix
+            def get_graph(self, idx):
+                return self.graphs[idx]
+
+        dataset = InMemoryGraphDataset(raw_graphs)
 
     splitter = GraphSplitter(train_ratio=0.8, val_ratio=0.1, test_ratio=0.1, seed=42)
     train_set, val_set, test_set = splitter.split(dataset)
@@ -113,7 +126,7 @@ def run_full_benchmark(
     test_loader = DataLoader(test_set, batch_size=8, shuffle=False)
 
     # Convert test set to graph objects for classical baselines
-    test_graphs = [dataset[i] if isinstance(dataset, list) else dataset.get_graph(i) for i in test_set.indices]
+    test_graphs = [dataset.get_graph(i) for i in test_set.indices]
 
     results: Dict[str, Dict[str, float]] = {}
 
